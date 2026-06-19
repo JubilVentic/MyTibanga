@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
     try {
-        const { username, password } = await request.json();
+        const { username, password, adminPortal = false } = await request.json();
 
         // Validate input
         if (!username || !password) {
@@ -16,6 +16,14 @@ export async function POST(request) {
         // Find user by username (now reads from PostgreSQL)
         const user = await findUserByUsername(username);
         if (!user) {
+            return NextResponse.json(
+                { success: false, message: 'Invalid username or password' },
+                { status: 401 }
+            );
+        }
+
+        const isAdmin = user.role === 'admin';
+        if (isAdmin !== !!adminPortal) {
             return NextResponse.json(
                 { success: false, message: 'Invalid username or password' },
                 { status: 401 }

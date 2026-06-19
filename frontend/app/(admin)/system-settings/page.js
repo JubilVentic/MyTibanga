@@ -1027,7 +1027,7 @@ export default function SystemSettingsPage() {
                         {!adminModal.id && (
                             <p className={styles.permHint} style={{ marginTop: 0, marginBottom: 16 }}>
                                 Face login is set up by each admin after their first sign-in. Use this field for a temporary or
-                                backup password: they log in from the public site (Admin Login → Use password instead), then open
+                                backup password: they log in at /welcome (Use password instead if needed), then open
                                 System Settings → Admin Profile → Face Recognition Login to enroll. They should keep this
                                 password in case face login is unavailable.
                             </p>
