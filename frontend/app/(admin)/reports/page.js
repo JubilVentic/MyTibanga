@@ -41,8 +41,8 @@ export default function ReportsPage() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [selectedDocument, setSelectedDocument] = useState('all');
 
-    const fetchReport = useCallback(() => {
-        setLoading(true);
+    const fetchReport = useCallback((options = { silent: false }) => {
+        if (!options.silent) setLoading(true);
         const params = new URLSearchParams();
         if (selectedReport === 'monthlyDocs' || selectedReport === 'collectionSummary') {
             if (timeFilter === 'year' && selectedYear) {
@@ -62,12 +62,13 @@ export default function ReportsPage() {
         const qs = params.toString();
         fetch(`/api/admin/reports${qs ? `?${qs}` : ''}`)
             .then(res => res.ok ? res.json() : null)
-            .then(d => { if (d) { setData(d); setLoading(false); } })
-            .catch(() => setLoading(false));
+            .then(d => { if (d) setData(d); })
+            .catch(() => {})
+            .finally(() => setLoading(false));
     }, [selectedReport, timeFilter, selectedYear, selectedDay, selectedMonth, selectedDocument]);
 
     useEffect(() => { fetchReport(); }, [fetchReport]);
-    usePolling(fetchReport, 15000);
+    usePolling(() => fetchReport({ silent: true }), 15000);
 
     const formatCurrency = (amt) => `₱${(amt || 0).toLocaleString()}`;
 
@@ -605,7 +606,7 @@ export default function ReportsPage() {
 
     return (
         <div className={styles.reports}>
-            {loading ? (
+            {loading && !data ? (
                 <div className={styles.loadingState}>Loading report data...</div>
             ) : (
                 <>
