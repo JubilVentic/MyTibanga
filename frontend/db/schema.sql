@@ -3,6 +3,13 @@
 -- ==========================================================
 -- This file creates all the tables we need.
 -- Run it with:  psql -U postgres -d barangay -f db/schema.sql
+--
+-- Structural changes from db/*.sql migrations are merged here.
+-- Data-only migrations (run separately on existing DBs if needed):
+--   update_puroks.sql — refreshes settings.puroks list
+--   add_document_requires_purpose.sql — UPDATE flags on existing documents rows
+--   add_or_booklet_setting.sql — orBooklet lives in settings (no DDL)
+--   remove_family_links.sql — family_links table removed (not created here)
 -- ==========================================================
 
 -- ── Users (admins & residents who can log in) ────────────
@@ -56,7 +63,8 @@ CREATE TABLE IF NOT EXISTS residents (
     username             TEXT DEFAULT '',
     password             TEXT DEFAULT '',
     id_picture           TEXT DEFAULT '',   -- base64-encoded image (can be very long)
-    deleted_at           TIMESTAMPTZ DEFAULT NULL
+    deleted_at           TIMESTAMPTZ DEFAULT NULL,
+    archive_reason       TEXT DEFAULT ''    -- why record was archived (Data Privacy Act)
 );
 
 -- ── Requests (document requests from residents) ──────────
@@ -129,4 +137,8 @@ CREATE TABLE IF NOT EXISTS homepage (
     key    TEXT PRIMARY KEY,
     value  JSONB NOT NULL DEFAULT '{}'
 );
+
+-- ── Indexes (from incremental migrations) ────────────────
+CREATE INDEX IF NOT EXISTS idx_residents_deleted_at ON residents(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_requests_user_id ON requests(user_id);
 

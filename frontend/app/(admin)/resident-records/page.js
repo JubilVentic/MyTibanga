@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
 import { formatChildrenWithAges, formatNameWithDeceased } from '@/lib/residentChildren';
+import { readResidentImportFile, RESIDENT_IMPORT_ACCEPT } from '@/lib/residentImportFile';
 import styles from './page.module.css';
 
 export default function ResidentRecordsPage() {
@@ -19,11 +20,16 @@ export default function ResidentRecordsPage() {
 
     // View modal state
     const [viewResident, setViewResident] = useState(null);
-    // Delete confirmation state
+    // Archive confirmation state
     const [deleteResident, setDeleteResident] = useState(null);
+    const [archiveReason, setArchiveReason] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [toast, setToast] = useState(null);
     const [showArchivedModal, setShowArchivedModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importCsv, setImportCsv] = useState('');
+    const [importPreview, setImportPreview] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
     const [archivedResidents, setArchivedResidents] = useState([]);
     const [archivedLoading, setArchivedLoading] = useState(false);
     const [restoringResidentId, setRestoringResidentId] = useState(null);
@@ -108,19 +114,29 @@ export default function ResidentRecordsPage() {
 
     const handleDelete = async () => {
         if (!deleteResident) return;
+        const reason = archiveReason.trim();
+        if (reason.length < 3) {
+            showToast('Please enter an archive reason (at least 3 characters).', 'error');
+            return;
+        }
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/admin/residents/${deleteResident.id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/residents/${deleteResident.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason }),
+            });
             const data = await res.json();
             if (data.success) {
                 fetchResidents();
                 setDeleteResident(null);
+                setArchiveReason('');
                 showToast('Resident archived. You can restore from Archived Residents.');
             } else {
-                showToast(data.error || 'Failed to delete resident.', 'error');
+                showToast(data.error || 'Failed to archive resident.', 'error');
             }
         } catch {
-            showToast('Error deleting resident.', 'error');
+            showToast('Error archiving resident.', 'error');
         } finally {
             setIsDeleting(false);
         }
@@ -185,6 +201,77 @@ export default function ResidentRecordsPage() {
         }
     };
 
+    const CSV_TEMPLATE = `firstName,lastName,middleName,suffix,sex,civilStatus,birthdate,birthplace,religion,purok,barangay,city,mobileNumber,email,sector,children
+Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,Tibanga,Iligan City,09171234567,juan@example.com,,
+`;
+
+    const downloadCsvTemplate = () => {
+        const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'resident-import-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportFile = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            const csv = await readResidentImportFile(file);
+            setImportCsv(csv);
+            setImportPreview(null);
+        } catch (err) {
+            showToast(err.message || 'Could not read that file. Use CSV or Excel (.xlsx).', 'error');
+        }
+    };
+
+    const handleImportSubmit = async () => {
+        if (!importCsv.trim()) {
+            showToast('Upload a CSV/Excel file or paste CSV content first.', 'error');
+            return;
+        }
+        setIsImporting(true);
+        try {
+            const res = await fetch('/api/admin/residents/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ csv: importCsv }),
+            });
+            const data = await res.json();
+            setImportPreview(data);
+            if (data.importedCount > 0) {
+                fetchResidents();
+            }
+            if (data.errors?.length) {
+                showToast(`Imported ${data.importedCount} with ${data.errors.length} error(s). See preview.`, 'error');
+            } else if (data.importedCount > 0) {
+                showToast(`Successfully imported ${data.importedCount} resident(s).`);
+            } else if (data.error) {
+                showToast(data.error, 'error');
+            }
+        } catch {
+            showToast('Import failed.', 'error');
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    const closeImportModal = () => {
+        setShowImportModal(false);
+        setImportCsv('');
+        setImportPreview(null);
+    };
+
+    const openArchiveModal = (resident) => {
+        setArchiveReason('');
+        setDeleteResident(resident);
+    };
+
     return (
         <div className={styles.page}>
             {/* Header */}
@@ -196,9 +283,14 @@ export default function ResidentRecordsPage() {
                         <p className={styles.pageSubtitle}>Number of recorded residence as of {today}</p>
                     </div>
                 </div>
-                <Link href="/resident-records/add" className={styles.addBtn}>
-                    Add new resident +
-                </Link>
+                <div className={styles.headerActions}>
+                    <button type="button" className={styles.importBtn} onClick={() => setShowImportModal(true)}>
+                        Import CSV
+                    </button>
+                    <Link href="/resident-records/add" className={styles.addBtn}>
+                        Add new resident +
+                    </Link>
+                </div>
             </div>
 
             {/* Filters */}
@@ -297,7 +389,7 @@ export default function ResidentRecordsPage() {
                                         <td className={styles.actionCell}>
                                             <button className={styles.viewBtn} onClick={() => setViewResident(r)}>View</button>
                                             <button className={styles.editBtn} onClick={() => router.push(`/resident-records/edit/${r.id}`)}>Edit</button>
-                                            <button className={styles.deleteBtn} onClick={() => setDeleteResident(r)}>Delete</button>
+                                            <button className={styles.deleteBtn} onClick={() => openArchiveModal(r)}>Archive</button>
                                         </td>
                                     </tr>
                                 ))
@@ -478,20 +570,31 @@ export default function ResidentRecordsPage() {
                 </Portal>
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Archive Confirmation Modal */}
             {deleteResident && (
-                <Portal onClose={() => !isDeleting && setDeleteResident(null)}>
-                    <div className={styles.modalOverlay} onClick={() => !isDeleting && setDeleteResident(null)}>
+                <Portal onClose={() => !isDeleting && (setDeleteResident(null), setArchiveReason(''))}>
+                    <div className={styles.modalOverlay} onClick={() => !isDeleting && (setDeleteResident(null), setArchiveReason(''))}>
                         <div className={styles.deleteModal} onClick={(e) => e.stopPropagation()}>
-                            <h2 className={styles.deleteTitle}>Delete Resident?</h2>
+                            <h2 className={styles.deleteTitle}>Archive Resident?</h2>
                             <p className={styles.deleteMessage}>
-                                Are you sure you want to delete <strong>{deleteResident.firstName} {deleteResident.lastName}</strong>?
-                                This action cannot be undone.
+                                Archive <strong>{deleteResident.firstName} {deleteResident.lastName}</strong>?
+                                The record will be hidden from the active list but can be restored from Archived Residents.
                             </p>
+                            <label className={styles.archiveReasonLabel}>
+                                Reason for archiving <span className={styles.requiredMark}>*</span>
+                                <textarea
+                                    className={styles.archiveReasonInput}
+                                    value={archiveReason}
+                                    onChange={(e) => setArchiveReason(e.target.value)}
+                                    placeholder="Required — e.g. Data Privacy Act request, duplicate record…"
+                                    rows={3}
+                                    disabled={isDeleting}
+                                />
+                            </label>
                             <div className={styles.deleteActions}>
                                 <button
                                     className={styles.cancelDeleteBtn}
-                                    onClick={() => setDeleteResident(null)}
+                                    onClick={() => { setDeleteResident(null); setArchiveReason(''); }}
                                     disabled={isDeleting}
                                 >
                                     Cancel
@@ -499,9 +602,9 @@ export default function ResidentRecordsPage() {
                                 <button
                                     className={styles.confirmDeleteBtn}
                                     onClick={handleDelete}
-                                    disabled={isDeleting}
+                                    disabled={isDeleting || archiveReason.trim().length < 3}
                                 >
-                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                    {isDeleting ? 'Archiving...' : 'Archive'}
                                 </button>
                             </div>
                         </div>
@@ -558,7 +661,8 @@ export default function ResidentRecordsPage() {
                                             <tr>
                                                 <th>Name</th>
                                                 <th>Purok</th>
-                                                <th>Deleted On</th>
+                                                <th>Archived On</th>
+                                                <th>Reason</th>
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
@@ -569,6 +673,9 @@ export default function ResidentRecordsPage() {
                                                     <td>{r.purok || '—'}</td>
                                                     <td>
                                                         {r.deletedAt ? new Date(r.deletedAt).toLocaleString() : '—'}
+                                                    </td>
+                                                    <td className={styles.archiveReasonCell}>
+                                                        {r.archiveReason?.trim() || '—'}
                                                     </td>
                                                     <td>
                                                         <div className={styles.archivedActions}>
@@ -594,6 +701,59 @@ export default function ResidentRecordsPage() {
                                     </table>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </Portal>
+            )}
+
+            {/* CSV Import Modal */}
+            {showImportModal && (
+                <Portal onClose={closeImportModal}>
+                    <div className={styles.modalOverlay} onClick={closeImportModal}>
+                        <div className={styles.importModal} onClick={(e) => e.stopPropagation()}>
+                            <div className={styles.importHeader}>
+                                <h2 className={styles.importTitle}>Import Residents from CSV or Excel</h2>
+                                <button type="button" className={styles.importCloseBtn} onClick={closeImportModal}>×</button>
+                            </div>
+                            <p className={styles.importHint}>
+                                Upload a .csv or .xlsx file. Required columns: firstName, lastName, purok. Optional: middleName, sex, civilStatus, birthdate, mobileNumber, email, sector, children (semicolon-separated).
+                            </p>
+                            <div className={styles.importActions}>
+                                <button type="button" className={styles.importTemplateBtn} onClick={downloadCsvTemplate}>
+                                    Download template
+                                </button>
+                                <label className={styles.importUploadBtn}>
+                                    Choose file
+                                    <input type="file" accept={RESIDENT_IMPORT_ACCEPT} onChange={handleImportFile} className={styles.importFileInput} />
+                                </label>
+                            </div>
+                            <textarea
+                                className={styles.importTextarea}
+                                value={importCsv}
+                                onChange={(e) => { setImportCsv(e.target.value); setImportPreview(null); }}
+                                placeholder="Or paste CSV content here…"
+                                rows={8}
+                            />
+                            {importPreview && (
+                                <div className={styles.importResult}>
+                                    <p>Imported: {importPreview.importedCount ?? 0}</p>
+                                    {(importPreview.errors || []).length > 0 && (
+                                        <ul className={styles.importErrorList}>
+                                            {importPreview.errors.map((err) => (
+                                                <li key={err.row}>Row {err.row}: {err.message}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
+                            <div className={styles.importFooter}>
+                                <button type="button" className={styles.cancelDeleteBtn} onClick={closeImportModal} disabled={isImporting}>
+                                    Close
+                                </button>
+                                <button type="button" className={styles.addBtn} onClick={handleImportSubmit} disabled={isImporting || !importCsv.trim()}>
+                                    {isImporting ? 'Importing...' : 'Import'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </Portal>

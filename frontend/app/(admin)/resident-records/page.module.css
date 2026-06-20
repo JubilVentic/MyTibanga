@@ -62,12 +62,171 @@
     text-decoration: none;
     transition: all 0.2s;
     white-space: nowrap;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .addBtn:hover {
     background: #f57c00;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+}
+
+.addBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.importBtn {
+    background: white;
+    color: #0147AE;
+    border: 2px solid #0147AE;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.importBtn:hover {
+    background: #0147AE;
+    color: white;
+}
+
+.requiredMark {
+    color: #c62828;
+}
+
+.archiveReasonLabel {
+    display: block;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.archiveReasonInput {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.archiveReasonCell {
+    max-width: 200px;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.importModal {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 640px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.importHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.importTitle {
+    margin: 0;
+    color: #0147AE;
+    font-size: 1.2rem;
+}
+
+.importCloseBtn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+.importHint {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 16px;
+    line-height: 1.5;
+}
+
+.importActions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.importTemplateBtn,
+.importUploadBtn {
+    background: #f0f4ff;
+    color: #0147AE;
+    border: 1px solid #c5d4f7;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.importFileInput {
+    display: none;
+}
+
+.importTextarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+}
+
+.importResult {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+}
+
+.importErrorList {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    color: #c62828;
+}
+
+.importFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
 }
 
 /* ==================== FILTER BAR ==================== */
@@ -477,7 +636,7 @@
     background: white;
     border-radius: 16px;
     padding: 32px;
-    max-width: 420px;
+    max-width: 480px;
     width: 100%;
     text-align: center;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);

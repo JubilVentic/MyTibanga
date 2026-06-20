@@ -12,7 +12,7 @@ export async function GET(request) {
 
     const archived = new URL(request.url).searchParams.get('archived') === '1';
     const archivedSelect = `
-        SELECT id, first_name, middle_name, last_name, suffix, purok, deleted_at
+        SELECT id, first_name, middle_name, last_name, suffix, purok, deleted_at, archive_reason
         FROM residents
         WHERE deleted_at IS NOT NULL
         ORDER BY deleted_at DESC NULLS LAST, id DESC
@@ -59,6 +59,7 @@ export async function GET(request) {
         password: '',
         idPicture: r.id_picture,
         deletedAt: r.deleted_at,
+        archiveReason: r.archive_reason || '',
     }));
     return NextResponse.json({ residents });
 }

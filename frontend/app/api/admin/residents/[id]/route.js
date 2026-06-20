@@ -195,7 +195,7 @@ export async function PUT(request, { params }) {
     }
 }
 
-// DELETE — soft delete resident (recoverable)
+// DELETE — soft delete resident (recoverable archive)
 export async function DELETE(request, { params }) {
     const gate = await requireAdmin();
     if (!gate.ok) return gate.response;
@@ -203,6 +203,14 @@ export async function DELETE(request, { params }) {
     try {
         const { id } = await params;
         const pid = parseInt(id);
+        const body = await request.json().catch(() => ({}));
+        const reason = String(body.reason || '').trim();
+        if (reason.length < 3) {
+            return NextResponse.json(
+                { error: 'Archive reason is required (at least 3 characters).' },
+                { status: 400 }
+            );
+        }
 
         const { rows: resRows } = await query(
             'SELECT username, email FROM residents WHERE id = $1 AND deleted_at IS NULL',
@@ -213,8 +221,8 @@ export async function DELETE(request, { params }) {
         }
 
         const { rowCount } = await query(
-            'UPDATE residents SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',
-            [pid]
+            'UPDATE residents SET deleted_at = NOW(), archive_reason = $1 WHERE id = $2 AND deleted_at IS NULL',
+            [reason, pid]
         );
         if (rowCount === 0) {
             return NextResponse.json({ error: 'Resident not found' }, { status: 404 });

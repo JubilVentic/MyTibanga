@@ -14,7 +14,7 @@ export async function POST(request, { params }) {
     }
 
     const { rows, rowCount } = await query(
-        'UPDATE residents SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
+        'UPDATE residents SET deleted_at = NULL, archive_reason = \'\' WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
         [residentId]
     );
 
