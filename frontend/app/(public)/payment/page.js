@@ -28,6 +28,7 @@ export default function PaymentPage() {
     const [ocrLoading, setOcrLoading] = useState(false);
     const [ocrError, setOcrError] = useState('');
     const [purposeDialogOpen, setPurposeDialogOpen] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
     useEffect(() => {
         const stored = JSON.parse(localStorage.getItem('requestedDocuments') || '[]');
@@ -143,8 +144,8 @@ export default function PaymentPage() {
         return `**** **** ${last4}`;
     };
 
-    const handleCancel = () => {
-        if (!confirm('Are you sure you want to cancel this request?')) return;
+    const confirmCancelRequest = () => {
+        setCancelDialogOpen(false);
         try {
             localStorage.removeItem('requestedDocuments');
             localStorage.removeItem('paymentInfo');
@@ -249,11 +250,22 @@ export default function PaymentPage() {
             <ConfirmDialog
                 open={purposeDialogOpen}
                 title="Purpose required"
-                message="Please enter the purpose of your request (e.g. employment, scholarship)."
+                message="Please enter the purpose of your request before placing it (e.g. employment, scholarship, loan application)."
                 confirmLabel="OK"
                 cancelLabel={null}
+                confirmVariant="neutral"
                 onConfirm={() => setPurposeDialogOpen(false)}
                 onCancel={() => setPurposeDialogOpen(false)}
+            />
+            <ConfirmDialog
+                open={cancelDialogOpen}
+                title="Cancel request?"
+                message="Your selected documents will be cleared and you'll return to document selection."
+                confirmLabel="Yes, cancel"
+                cancelLabel="Keep request"
+                confirmVariant="primary"
+                onConfirm={confirmCancelRequest}
+                onCancel={() => setCancelDialogOpen(false)}
             />
             <TimeDisplay />
 
@@ -296,15 +308,20 @@ export default function PaymentPage() {
 
                 {items.length > 0 && (
                     <>
-                        <div className={styles.sectionTitle}>Purpose of Request</div>
-                        <textarea
-                            className={styles.purposeInput}
-                            placeholder="e.g. Employment, scholarship, loan application"
-                            value={purpose}
-                            onChange={(e) => setPurpose(e.target.value)}
-                            rows={3}
-                            maxLength={250}
-                        />
+                        <label className={styles.purposeField}>
+                            <span className={styles.sectionTitle}>
+                                Purpose of Request <span className={styles.requiredMark}>*</span>
+                            </span>
+                            <textarea
+                                className={styles.purposeInput}
+                                placeholder="e.g. Employment, scholarship, loan application"
+                                value={purpose}
+                                onChange={(e) => setPurpose(e.target.value)}
+                                rows={3}
+                                maxLength={250}
+                                aria-required="true"
+                            />
+                        </label>
                         <p className={styles.purposeHint}>
                             Required for every request. Some certificates do not print this on the document, but the
                             barangay still keeps it on record.
@@ -312,7 +329,9 @@ export default function PaymentPage() {
                     </>
                 )}
 
-                <div className={styles.sectionTitle}>Payment Method</div>
+                <div className={styles.sectionTitle}>
+                    Payment Method <span className={styles.requiredMark}>*</span>
+                </div>
                 {!onlinePaymentEnabled && (
                     <p className={styles.cashOnlyHint}>
                         This barangay currently accepts cash payment only at the office.
@@ -457,7 +476,12 @@ export default function PaymentPage() {
                 )}
 
                 <div className={styles.buttonGroup}>
-                    <button className={`${styles.btn} ${styles.btnCancel}`} onClick={handleCancel} disabled={submitting}>
+                    <button
+                        type="button"
+                        className={`${styles.btn} ${styles.btnCancel}`}
+                        onClick={() => setCancelDialogOpen(true)}
+                        disabled={submitting}
+                    >
                         Cancel Request
                     </button>
                     <button

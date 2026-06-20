@@ -67,15 +67,20 @@
 }
 
 .btnCancel,
-.btnConfirm {
+.btnConfirm,
+.btnConfirmDanger,
+.btnConfirmNeutral {
     font-family: inherit;
     font-size: 0.9rem;
     font-weight: 600;
-    padding: 0.55rem 1.1rem;
+    padding: 0.55rem 1.25rem;
     border-radius: 8px;
     cursor: pointer;
     border: none;
-    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    min-width: 7rem;
 }
 
 .btnCancel {
@@ -88,20 +93,49 @@
     color: var(--white, #fff);
 }
 
-.btnCancel:hover,
+.btnConfirmDanger {
+    background: #c62828;
+    color: var(--white, #fff);
+}
+
+.btnConfirmNeutral {
+    background: var(--orange-primary, #ff9800);
+    color: var(--white, #fff);
+}
+
+.btnCancel:hover {
+    background: #e0e0e0;
+    color: var(--dark-text, #333);
+}
+
 .btnConfirm:hover {
     background: var(--orange-primary, #ff9800);
-    color: var(--dark-text, #333);
+    color: var(--white, #fff);
+    box-shadow: 0 2px 10px rgba(255, 152, 0, 0.35);
+}
+
+.btnConfirmDanger:hover {
+    background: #b71c1c;
+    color: var(--white, #fff);
+    box-shadow: 0 2px 10px rgba(198, 40, 40, 0.35);
+}
+
+.btnConfirmNeutral:hover {
+    background: var(--orange-hover, #fb8c00);
+    color: var(--white, #fff);
     box-shadow: 0 2px 10px rgba(255, 152, 0, 0.35);
 }
 
 .btnCancel:active,
-.btnConfirm:active {
-    background: var(--orange-hover, #fb8c00);
-    color: var(--dark-text, #333);
+.btnConfirm:active,
+.btnConfirmDanger:active,
+.btnConfirmNeutral:active {
+    transform: scale(0.98);
 }
 
 .btnConfirm:focus-visible,
+.btnConfirmDanger:focus-visible,
+.btnConfirmNeutral:focus-visible,
 .btnCancel:focus-visible {
     outline: 2px solid var(--orange-primary, #ff9800);
     outline-offset: 2px;

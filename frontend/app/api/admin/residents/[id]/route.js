@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { requireAdmin } from '@/lib/auth';
 import { normalizeChildrenArrays } from '@/lib/residentChildren';
+import { validateSoloParentSector } from '@/lib/residentValidation';
 
 // Helper to convert a DB row to camelCase
 function toCamel(r) {
@@ -69,7 +70,7 @@ export async function PUT(request, { params }) {
         let nextHashedPassword = null;
 
         const { rows: currentRows } = await query(
-            'SELECT id, first_name, last_name, username, email, password FROM residents WHERE id = $1 AND deleted_at IS NULL',
+            'SELECT id, first_name, last_name, username, email, password, sector, children FROM residents WHERE id = $1 AND deleted_at IS NULL',
             [residentId]
         );
         if (currentRows.length === 0) {
@@ -102,6 +103,17 @@ export async function PUT(request, { params }) {
         }
         if (body.sector !== undefined) {
             merged.soloParent = String(body.sector || '').trim() === 'Solo parent';
+        }
+
+        const effectiveSector = body.sector !== undefined
+            ? String(body.sector || '').trim()
+            : String(currentResident.sector || '').trim();
+        const effectiveChildren = merged.children !== undefined
+            ? merged.children
+            : (currentResident.children || []);
+        const soloErr = validateSoloParentSector(effectiveSector, effectiveChildren);
+        if (soloErr) {
+            return NextResponse.json({ error: soloErr }, { status: 400 });
         }
 
         const sets = [];

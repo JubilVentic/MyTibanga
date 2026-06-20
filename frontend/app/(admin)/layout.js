@@ -101,9 +101,10 @@ export default function AdminLayout({ children }) {
             <ConfirmDialog
                 open={logoutDialogOpen}
                 title="Log out?"
-                message="Are you sure you want to log out?"
+                message="You will need to sign in again to access the admin dashboard."
                 confirmLabel="Log out"
                 cancelLabel="Cancel"
+                confirmVariant="primary"
                 onConfirm={performLogout}
                 onCancel={() => setLogoutDialogOpen(false)}
             />

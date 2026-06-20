@@ -189,9 +189,10 @@ export default function PublicNavbar() {
             <ConfirmDialog
                 open={logoutDialogOpen}
                 title="Log out?"
-                message="Are you sure you want to log out?"
+                message="You will need to sign in again to access your requests and profile."
                 confirmLabel="Log out"
                 cancelLabel="Cancel"
+                confirmVariant="primary"
                 onConfirm={performLogout}
                 onCancel={() => setLogoutDialogOpen(false)}
             />

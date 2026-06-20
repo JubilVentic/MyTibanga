@@ -650,9 +650,9 @@ export default function AdminDashboardPage() {
                                     )}
                                 </div>
 
-                                {/* Documents Ordered */}
+                                {/* Documents Requested */}
                                 <div className={styles.docListSection}>
-                                    <h3 className={styles.docListTitle}>Documents Ordered</h3>
+                                    <h3 className={styles.docListTitle}>Documents Requested</h3>
                                     <div className={styles.docList}>
                                         {(selectedRequest.documents || []).map((doc, i) => (
                                             <div key={i} className={styles.docListItem}>

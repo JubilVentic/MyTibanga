@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { requireAdmin } from '@/lib/auth';
 import { normalizeChildrenArrays } from '@/lib/residentChildren';
+import { validateSoloParentSector } from '@/lib/residentValidation';
 
 // GET — return active residents by default; pass ?archived=1 for soft-deleted residents
 export async function GET(request) {
@@ -77,6 +78,11 @@ export async function POST(request) {
         );
         const sector = String(body.sector || '').trim();
         const soloParent = sector === 'Solo parent' || !!body.soloParent;
+
+        const soloErr = validateSoloParentSector(sector, childNames);
+        if (soloErr) {
+            return NextResponse.json({ success: false, message: soloErr }, { status: 400 });
+        }
 
         const { rows } = await query(
             `INSERT INTO residents (

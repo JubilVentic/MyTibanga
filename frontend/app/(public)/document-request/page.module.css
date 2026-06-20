@@ -50,6 +50,10 @@
     font-size: 0.95rem;
 }
 
+.requiredMark {
+    color: #c62828;
+}
+
 .documentOptions {
     border: 2px solid #5c9cff;
     border-radius: 15px;

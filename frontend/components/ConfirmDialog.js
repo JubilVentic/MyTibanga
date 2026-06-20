@@ -13,9 +13,16 @@ export default function ConfirmDialog({
     message,
     confirmLabel = 'OK',
     cancelLabel = 'Cancel',
+    confirmVariant = 'primary',
     onConfirm,
     onCancel,
 }) {
+    const confirmClass =
+        confirmVariant === 'danger'
+            ? styles.btnConfirmDanger
+            : confirmVariant === 'neutral'
+              ? styles.btnConfirmNeutral
+              : styles.btnConfirm;
     const [mounted, setMounted] = useState(false);
     const titleId = useId();
     const descId = useId();
@@ -64,7 +71,7 @@ export default function ConfirmDialog({
                             {cancelLabel}
                         </button>
                     ) : null}
-                    <button type="button" className={styles.btnConfirm} onClick={() => onConfirm?.()}>
+                    <button type="button" className={confirmClass} onClick={() => onConfirm?.()}>
                         {confirmLabel}
                     </button>
                 </div>

@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { validateSoloParentSector } from '@/lib/residentValidation';
 
 const RELIGION_OPTIONS = [
     'Roman Catholic',
@@ -65,6 +67,7 @@ export default function AddResidentPage() {
     const [religionOther, setReligionOther] = useState('');
     const [idPreview, setIdPreview] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [soloParentDialogOpen, setSoloParentDialogOpen] = useState(false);
     const [residentCount, setResidentCount] = useState(null);
     const [cameraActive, setCameraActive] = useState(false);
     const videoRef = useRef(null);
@@ -218,6 +221,11 @@ export default function AddResidentPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const soloErr = validateSoloParentSector(form.sector, form.children);
+        if (soloErr) {
+            setSoloParentDialogOpen(true);
+            return;
+        }
         setIsSubmitting(true);
 
         try {
@@ -257,6 +265,17 @@ export default function AddResidentPage() {
     };
 
     return (
+        <>
+            <ConfirmDialog
+                open={soloParentDialogOpen}
+                title="Cannot save resident"
+                message="Solo parent sector requires at least one child name."
+                confirmLabel="OK"
+                cancelLabel={null}
+                confirmVariant="primary"
+                onConfirm={() => setSoloParentDialogOpen(false)}
+                onCancel={() => setSoloParentDialogOpen(false)}
+            />
         <div className={styles.page}>
             {/* Header */}
             <div className={styles.pageHeader}>
@@ -286,7 +305,7 @@ export default function AddResidentPage() {
                     <legend className={styles.sectionTitle}>Resident&apos;s Information</legend>
 
                     <div className={styles.formRow}>
-                        <input type="text" placeholder="First Name" className={styles.input}
+                        <input type="text" placeholder="First Name *" className={styles.input}
                             value={form.firstName} onChange={(e) => handleChange('firstName', e.target.value)} required />
                     </div>
                     <div className={styles.formRow}>
@@ -294,7 +313,7 @@ export default function AddResidentPage() {
                             value={form.middleName} onChange={(e) => handleChange('middleName', e.target.value)} />
                     </div>
                     <div className={styles.formRow}>
-                        <input type="text" placeholder="Last Name" className={styles.input}
+                        <input type="text" placeholder="Last Name *" className={styles.input}
                             value={form.lastName} onChange={(e) => handleChange('lastName', e.target.value)} required />
                     </div>
                     <div className={styles.formRowThree}>
@@ -302,13 +321,13 @@ export default function AddResidentPage() {
                             value={form.suffix} onChange={(e) => handleChange('suffix', e.target.value)} />
                         <select className={styles.select} value={form.sex}
                             onChange={(e) => handleChange('sex', e.target.value)} required>
-                            <option value="">Sex</option>
+                            <option value="">Sex *</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                         <select className={styles.select} value={form.civilStatus}
                             onChange={(e) => handleChange('civilStatus', e.target.value)} required>
-                            <option value="">Civil Status</option>
+                            <option value="">Civil Status *</option>
                             <option value="Single">Single</option>
                             <option value="Married">Married</option>
                             <option value="Widowed">Widowed</option>
@@ -322,7 +341,8 @@ export default function AddResidentPage() {
                             value={form.birthdate}
                             onChange={(e) => handleChange('birthdate', e.target.value)}
                             max={new Date().toISOString().split('T')[0]}
-                            aria-label="Date of Birth"
+                            aria-label="Date of Birth *"
+                            title="Date of Birth *"
                             required
                         />
                         <input type="text" placeholder="Age" className={styles.input}
@@ -398,7 +418,7 @@ export default function AddResidentPage() {
                     <div className={styles.formRowThree}>
                         <select className={styles.select} value={form.purok}
                             onChange={(e) => handleChange('purok', e.target.value)} required>
-                            <option value="">Purok</option>
+                            <option value="">Purok *</option>
                             {puroks.map(p => (
                                 <option key={p} value={p}>{p}</option>
                             ))}
@@ -566,5 +586,6 @@ export default function AddResidentPage() {
                 </div>
             </form>
         </div>
+        </>
     );
 }

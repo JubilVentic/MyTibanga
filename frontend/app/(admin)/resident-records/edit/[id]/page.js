@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import styles from '../../add/page.module.css';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { alignChildrenFormArrays } from '@/lib/residentChildren';
+import { validateSoloParentSector } from '@/lib/residentValidation';
 
 const RELIGION_OPTIONS = [
     'Roman Catholic',
@@ -37,6 +39,7 @@ export default function EditResidentPage() {
     const [religionOption, setReligionOption] = useState('');
     const [religionOther, setReligionOther] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [soloParentDialogOpen, setSoloParentDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -174,6 +177,11 @@ export default function EditResidentPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const soloErr = validateSoloParentSector(form.sector, form.children);
+        if (soloErr) {
+            setSoloParentDialogOpen(true);
+            return;
+        }
         setIsSubmitting(true);
 
         try {
@@ -225,6 +233,17 @@ export default function EditResidentPage() {
     }
 
     return (
+        <>
+            <ConfirmDialog
+                open={soloParentDialogOpen}
+                title="Cannot save resident"
+                message="Solo parent sector requires at least one child name."
+                confirmLabel="OK"
+                cancelLabel={null}
+                confirmVariant="primary"
+                onConfirm={() => setSoloParentDialogOpen(false)}
+                onCancel={() => setSoloParentDialogOpen(false)}
+            />
         <div className={styles.page}>
             {/* Header */}
             <div className={styles.pageHeader}>
@@ -252,7 +271,7 @@ export default function EditResidentPage() {
                     <legend className={styles.sectionTitle}>Resident&apos;s Information</legend>
 
                     <div className={styles.formRow}>
-                        <input type="text" placeholder="First Name" className={styles.input}
+                        <input type="text" placeholder="First Name *" className={styles.input}
                             value={form.firstName} onChange={(e) => handleChange('firstName', e.target.value)} required />
                     </div>
                     <div className={styles.formRow}>
@@ -260,7 +279,7 @@ export default function EditResidentPage() {
                             value={form.middleName} onChange={(e) => handleChange('middleName', e.target.value)} />
                     </div>
                     <div className={styles.formRow}>
-                        <input type="text" placeholder="Last Name" className={styles.input}
+                        <input type="text" placeholder="Last Name *" className={styles.input}
                             value={form.lastName} onChange={(e) => handleChange('lastName', e.target.value)} required />
                     </div>
                     <div className={styles.formRowThree}>
@@ -268,13 +287,13 @@ export default function EditResidentPage() {
                             value={form.suffix} onChange={(e) => handleChange('suffix', e.target.value)} />
                         <select className={styles.select} value={form.sex}
                             onChange={(e) => handleChange('sex', e.target.value)} required>
-                            <option value="">Sex</option>
+                            <option value="">Sex *</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                         <select className={styles.select} value={form.civilStatus}
                             onChange={(e) => handleChange('civilStatus', e.target.value)} required>
-                            <option value="">Civil Status</option>
+                            <option value="">Civil Status *</option>
                             <option value="Single">Single</option>
                             <option value="Married">Married</option>
                             <option value="Widowed">Widowed</option>
@@ -385,7 +404,7 @@ export default function EditResidentPage() {
                     <div className={styles.formRowThree}>
                         <select className={styles.select} value={form.purok}
                             onChange={(e) => handleChange('purok', e.target.value)} required>
-                            <option value="">Purok</option>
+                            <option value="">Purok *</option>
                             {puroks.map(p => (
                                 <option key={p} value={p}>{p}</option>
                             ))}
@@ -515,5 +534,6 @@ export default function EditResidentPage() {
                 </div>
             </form>
         </div>
+        </>
     );
 }

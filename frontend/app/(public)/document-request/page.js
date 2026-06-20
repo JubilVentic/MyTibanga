@@ -117,8 +117,10 @@ export default function DocumentRequestPage() {
             <section className={styles.contentSection}>
                 {/* Left Panel */}
                 <div className={styles.leftPanel}>
-                    <h2 className={styles.sectionTitle}>Select the document you&apos;d like to request</h2>
-                    <p className={styles.sectionSubtitle}>Choose the documents below:</p>
+                    <h2 className={styles.sectionTitle}>
+                        Select the document you&apos;d like to request <span className={styles.requiredMark}>*</span>
+                    </h2>
+                    <p className={styles.sectionSubtitle}>Choose at least one document below:</p>
 
                     <div className={styles.documentOptions}>
                         {loading ? (

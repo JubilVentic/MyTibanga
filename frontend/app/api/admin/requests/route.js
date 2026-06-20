@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { requireAdmin, requireAuth } from '@/lib/auth';
 import { priceLineItems } from '@/lib/documentFeeResolve';
 import { sendSMS, isPhilippineMobileSmsCapable } from '@/lib/sms';
+import { buildDocumentRequestSubmittedSms } from '@/lib/documentRequirements';
 import { purgeExpiredPendingRequests } from '@/lib/requestExpiry';
 import {
     loadOrBooklet,
@@ -189,7 +190,7 @@ export async function POST(request) {
                 console.log('[SMS] user_id:', userIdForDb, 'phone:', phone);
                 if (phone) {
                     const reqNo = requestNo || id;
-                    const msg = `MyTibangaPortal: Your document request (${reqNo}) has been submitted. Go to Track Request on the portal and enter your request number to check your status.`;
+                    const msg = buildDocumentRequestSubmittedSms(reqNo, priced);
                     if (isPhilippineMobileSmsCapable(phone)) {
                         sendSMS(phone, msg)
                             .then((smsResult) => {

@@ -78,23 +78,40 @@
     font-weight: 500;
 }
 
+.purposeField {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.purposeField .sectionTitle {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
 .purposeInput {
     width: 100%;
     box-sizing: border-box;
-    border: 2px solid #e3f2fd;
-    border-radius: 10px;
-    padding: 0.75rem;
+    border: 2px solid #cfe0fb;
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
     font-size: 0.9rem;
     font-family: inherit;
-    color: #0147AE;
+    color: #1a3a5c;
+    background: #f8fbff;
     resize: vertical;
-    min-height: 72px;
-    margin-bottom: 0.35rem;
+    min-height: 88px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.purposeInput::placeholder {
+    color: #7a94b8;
 }
 
 .purposeInput:focus {
     outline: none;
     border-color: #0147AE;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(1, 71, 174, 0.12);
 }
 
 .purposeHint {
@@ -110,6 +127,10 @@
     font-size: 1rem;
     margin-bottom: 1rem;
     font-weight: 600;
+}
+
+.requiredMark {
+    color: #c62828;
 }
 
 .paymentOptions {
