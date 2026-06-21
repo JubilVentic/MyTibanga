@@ -133,6 +133,46 @@
     color: #c62828;
 }
 
+.purposeSelect {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.75rem;
+    border: 2px solid #cfe0fb;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #1a3a5c;
+    background: #f8fbff;
+    margin-bottom: 0.5rem;
+}
+
+.purposeSelect:focus {
+    outline: none;
+    border-color: #0147AE;
+}
+
+.requirementsPanel {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    background: #f0f6ff;
+    border: 1px solid #c5d9f7;
+    border-radius: 8px;
+}
+
+.requirementsTitle {
+    font-weight: 600;
+    color: #0147AE;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+}
+
+.requirementsList {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #333;
+    font-size: 0.88rem;
+}
+
 .paymentOptions {
     margin-bottom: 1.5rem;
 }

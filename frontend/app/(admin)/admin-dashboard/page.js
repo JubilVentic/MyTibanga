@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
 import { useAuth } from '@/hooks/useAuth';
+import { buildRequirementChecklist } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
 const STATUS_OPTIONS = [
@@ -11,10 +12,6 @@ const STATUS_OPTIONS = [
     { value: 'approved', label: 'Validation', color: '#2196f3' },
     { value: 'for_release', label: 'For Release', color: '#4caf50' },
     { value: 'completed', label: 'Done', color: '#0147AE' },
-];
-
-const REQUIREMENTS = [
-    { key: 'purok_clearance', label: 'Purok Clearance' },
 ];
 
 const DOCUMENT_FILTER_OPTIONS = [
@@ -77,6 +74,24 @@ export default function AdminDashboardPage() {
     const [purposeEditing, setPurposeEditing] = useState(false);
     const [savingPurpose, setSavingPurpose] = useState(false);
     const [showExpiredModal, setShowExpiredModal] = useState(false);
+    const [documentRequirementsMap, setDocumentRequirementsMap] = useState({});
+    const [notifyReqList, setNotifyReqList] = useState([]);
+
+    useEffect(() => {
+        fetch('/api/request-config')
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((d) => {
+                if (d.documentRequirements) setDocumentRequirementsMap(d.documentRequirements);
+            })
+            .catch(() => {});
+    }, []);
+
+    const getRequirementsForRequest = (req) => {
+        if (!req) return [];
+        const names = (req.documents || []).map((d) => d.name).filter(Boolean);
+        if (names.length === 0 && req.document) names.push(req.document);
+        return buildRequirementChecklist(names, documentRequirementsMap);
+    };
 
     useEffect(() => {
         if (selectedRequest) {
@@ -192,6 +207,8 @@ export default function AdminDashboardPage() {
 
     // ── Open Notify Dialog ──
     const openNotifyDialog = (id) => {
+        const req = requests.find((r) => r.id === id);
+        setNotifyReqList(getRequirementsForRequest(req));
         setNotifyTargetId(id);
         setNotifyMissingReqs({});
         setNotifyNotes('');
@@ -200,7 +217,7 @@ export default function AdminDashboardPage() {
 
     // ── Submit Notification (keeps status pending) ──
     const handleNotifySubmit = async () => {
-        const missing = REQUIREMENTS.filter(r => notifyMissingReqs[r.key]).map(r => r.label);
+        const missing = notifyReqList.filter((r) => notifyMissingReqs[r.key]).map((r) => r.label);
         let notes = '';
         if (missing.length > 0) {
             notes = 'Missing requirements: ' + missing.join(', ') + '.';
@@ -723,10 +740,9 @@ export default function AdminDashboardPage() {
                                     )}
                                 </div>
 
-                                {/* Requirements Checklist */}
                                 <div className={styles.requirementsSection}>
                                     <h3 className={styles.docListTitle}>Requirements</h3>
-                                    {REQUIREMENTS.map((req) => (
+                                    {getRequirementsForRequest(selectedRequest).map((req) => (
                                         <label key={req.key} className={styles.requirementItem}>
                                             <input
                                                 type="checkbox"
@@ -757,7 +773,7 @@ export default function AdminDashboardPage() {
                                             <button
                                                 className={styles.approveBtn}
                                                 onClick={() => { handleStatusChange(selectedRequest.id, 'approved'); setSelectedRequest(null); }}
-                                                disabled={!REQUIREMENTS.every(req => checkedRequirements[selectedRequest.id + '_' + req.key])}
+                                                disabled={!getRequirementsForRequest(selectedRequest).every(req => checkedRequirements[selectedRequest.id + '_' + req.key])}
                                             >
                                                 Approve
                                             </button>
@@ -834,7 +850,7 @@ export default function AdminDashboardPage() {
 
                             <div className={styles.declineReqList}>
                                 <h4 className={styles.declineReqLabel}>Missing Requirements</h4>
-                                {REQUIREMENTS.map((req) => (
+                                {notifyReqList.map((req) => (
                                     <label key={req.key} className={styles.notifyReqItem}>
                                         <input
                                             type="checkbox"

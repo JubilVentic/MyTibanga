@@ -54,6 +54,28 @@
     color: #c62828;
 }
 
+.requirementsPanel {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #f0f6ff;
+    border: 1px solid #c5d9f7;
+    border-radius: 8px;
+}
+
+.requirementsTitle {
+    font-weight: 600;
+    color: #0147AE;
+    font-size: 0.88rem;
+    margin-bottom: 0.35rem;
+}
+
+.requirementsList {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+    color: #333;
+}
+
 .documentOptions {
     border: 2px solid #5c9cff;
     border-radius: 15px;

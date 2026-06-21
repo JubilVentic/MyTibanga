@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
+import { getRequirementsForDocument } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
 export default function DocumentRequestPage() {
@@ -17,6 +18,7 @@ export default function DocumentRequestPage() {
     const [previewIndex, setPreviewIndex] = useState(0);
     const [modalImage, setModalImage] = useState(null);
     const [confirming, setConfirming] = useState(false);
+    const [documentRequirementsMap, setDocumentRequirementsMap] = useState({});
 
     // Fetch documents from the database
     const fetchDocuments = useCallback(async () => {
@@ -44,6 +46,15 @@ export default function DocumentRequestPage() {
         }
     }, []);
 
+    useEffect(() => {
+        fetch('/api/request-config')
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((d) => {
+                if (d.documentRequirements) setDocumentRequirementsMap(d.documentRequirements);
+            })
+            .catch(() => {});
+    }, []);
+
     useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
     // Document catalog changes infrequently; avoid aggressive refetch that can re-trigger image work.
     usePolling(fetchDocuments, 60000);
@@ -54,6 +65,10 @@ export default function DocumentRequestPage() {
     }, [router]);
 
     const selectedDocs = documents.filter((doc) => selected[doc.id]);
+    const currentPreviewDoc = selectedDocs[previewIndex];
+    const selectedRequirements = currentPreviewDoc
+        ? getRequirementsForDocument(currentPreviewDoc.label, documentRequirementsMap)
+        : [];
 
     const handleToggle = (docId) => {
         setSelected((prev) => {
@@ -221,6 +236,17 @@ export default function DocumentRequestPage() {
                             })()}
                         </div>
                     </div>
+
+                    {selectedDocs.length > 0 && selectedRequirements.length > 0 && (
+                        <div className={styles.requirementsPanel}>
+                            <div className={styles.requirementsTitle}>Requirements for this certificate</div>
+                            <ul className={styles.requirementsList}>
+                                {selectedRequirements.map((req) => (
+                                    <li key={req}>{req}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* Pagination Dots */}
                     {selectedDocs.length > 0 && (

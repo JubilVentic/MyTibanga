@@ -8,6 +8,7 @@ import {
     OrBookletError,
     saveOrBooklet,
 } from '@/lib/orBooklet';
+import { DEFAULT_COMMON_PURPOSES, DEFAULT_DOCUMENT_REQUIREMENTS } from '@/lib/documentRequirements';
 
 // Check if user is a super admin
 function isSuperAdmin(user) {
@@ -37,6 +38,8 @@ export async function GET() {
     const { rows: paymentRows } = await query("SELECT value FROM settings WHERE key = 'paymentConfig'");
     const { rows: expiryRows } = await query("SELECT value FROM settings WHERE key = 'pendingExpiryDays'");
     const { rows: cameraRows } = await query("SELECT value FROM settings WHERE key = 'cameraLoginEnabled'");
+    const { rows: reqMapRows } = await query("SELECT value FROM settings WHERE key = 'documentRequirements'");
+    const { rows: purposeRows } = await query("SELECT value FROM settings WHERE key = 'commonPurposes'");
     const orBooklet = orBookletSummary(await loadOrBooklet());
     const documentFees = feeRows[0]?.value || [];
     const puroks = purokRows[0]?.value || [];
@@ -53,6 +56,13 @@ export async function GET() {
     const cameraLoginEnabled = typeof cameraLoginRaw === 'boolean'
         ? cameraLoginRaw
         : true;
+    const documentRequirements =
+        reqMapRows[0]?.value && typeof reqMapRows[0].value === 'object' && !Array.isArray(reqMapRows[0].value)
+            ? reqMapRows[0].value
+            : DEFAULT_DOCUMENT_REQUIREMENTS;
+    const commonPurposes = Array.isArray(purposeRows[0]?.value) && purposeRows[0].value.length > 0
+        ? purposeRows[0].value
+        : DEFAULT_COMMON_PURPOSES;
     const rawPaymentConfig = paymentRows[0]?.value || {
         gcash: { accountName: 'Barangay Tibanga', accountNumber: '0900 000 0000', qrImageUrl: '' },
         bank: { bankName: 'LandBank', accountName: 'Barangay Tibanga', accountNumber: '0000-0000-0000' },
@@ -101,6 +111,8 @@ export async function GET() {
         isSuperAdmin: userIsSuperAdmin,
         adminUsers,
         orBooklet,
+        documentRequirements,
+        commonPurposes,
     });
 }
 
@@ -343,6 +355,27 @@ export async function PATCH(request) {
             const adminUsers = rows.map((u) => ({ id: u.id, name: u.name, username: u.username, email: u.email, superAdmin: u.super_admin || false, permissions: u.permissions || [] }));
             return NextResponse.json({ success: true, adminUsers });
         }
+    }
+
+    // ── Request config (purposes + per-document requirements) ──
+    if (section === 'request-config') {
+        if (!hasPermission(currentUser, 'fees')) {
+            return NextResponse.json({ error: 'No permission to edit request settings' }, { status: 403 });
+        }
+        const { commonPurposes, documentRequirements } = body;
+        if (Array.isArray(commonPurposes)) {
+            await query(
+                "INSERT INTO settings (key, value) VALUES ('commonPurposes', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+                [JSON.stringify(commonPurposes.filter(Boolean))]
+            );
+        }
+        if (documentRequirements && typeof documentRequirements === 'object' && !Array.isArray(documentRequirements)) {
+            await query(
+                "INSERT INTO settings (key, value) VALUES ('documentRequirements', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+                [JSON.stringify(documentRequirements)]
+            );
+        }
+        return NextResponse.json({ success: true, commonPurposes, documentRequirements });
     }
 
     return NextResponse.json({ error: 'Invalid section' }, { status: 400 });

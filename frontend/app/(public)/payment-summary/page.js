@@ -6,6 +6,7 @@ import TimeDisplay from '@/components/TimeDisplay';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
 import { priceLineItems } from '@/lib/documentFeeResolve';
+import { getRequirementsForDocuments } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
 function generateRequestNumber() {
@@ -30,6 +31,16 @@ export default function PaymentSummaryPage() {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [referenceNo, setReferenceNo] = useState('');
     const [notification, setNotification] = useState(null);
+    const [documentRequirementsMap, setDocumentRequirementsMap] = useState({});
+
+    useEffect(() => {
+        fetch('/api/request-config')
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((d) => {
+                if (d.documentRequirements) setDocumentRequirementsMap(d.documentRequirements);
+            })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         const paymentInfo = JSON.parse(localStorage.getItem('paymentInfo') || '{}');
@@ -64,6 +75,7 @@ export default function PaymentSummaryPage() {
 
     const items = priceLineItems(documentFees, documents);
     const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
+    const submitRequirements = getRequirementsForDocuments(items.map((i) => i.name), documentRequirementsMap);
 
     const showToast = useCallback((message) => {
         setNotification(message);
@@ -153,6 +165,17 @@ export default function PaymentSummaryPage() {
                         </div>
                     ) : null}
                 </div>
+
+                {submitRequirements.length > 0 && (
+                    <div className={styles.requirementsPanel}>
+                        <div className={styles.requirementsTitle}>Please prepare</div>
+                        <ul className={styles.requirementsList}>
+                            {submitRequirements.map((req) => (
+                                <li key={req}>{req}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <div className={styles.requestDetails}>
                     <div className={styles.detailsHeader}>Request Details</div>

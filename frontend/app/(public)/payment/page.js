@@ -7,6 +7,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
 import { priceLineItems } from '@/lib/documentFeeResolve';
+import { getRequirementsForDocuments } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
 export default function PaymentPage() {
@@ -19,6 +20,10 @@ export default function PaymentPage() {
     const [onlinePaymentType, setOnlinePaymentType] = useState('gcash');
     const [reference, setReference] = useState('');
     const [purpose, setPurpose] = useState('');
+    const [purposeChoice, setPurposeChoice] = useState('');
+    const [purposeOther, setPurposeOther] = useState('');
+    const [commonPurposes, setCommonPurposes] = useState([]);
+    const [documentRequirementsMap, setDocumentRequirementsMap] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [paymentConfig, setPaymentConfig] = useState({
         onlinePaymentEnabled: true,
@@ -34,6 +39,26 @@ export default function PaymentPage() {
         const stored = JSON.parse(localStorage.getItem('requestedDocuments') || '[]');
         setDocuments(stored);
     }, []);
+
+    useEffect(() => {
+        fetch('/api/request-config')
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((d) => {
+                if (Array.isArray(d.commonPurposes)) setCommonPurposes(d.commonPurposes);
+                if (d.documentRequirements) setDocumentRequirementsMap(d.documentRequirements);
+            })
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (purposeChoice === 'other') {
+            setPurpose(purposeOther.trim());
+        } else if (purposeChoice) {
+            setPurpose(purposeChoice);
+        } else {
+            setPurpose('');
+        }
+    }, [purposeChoice, purposeOther]);
 
     const fetchFees = useCallback(async () => {
         try {
@@ -81,6 +106,7 @@ export default function PaymentPage() {
 
     const items = priceLineItems(documentFees, documents);
     const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
+    const submitRequirements = getRequirementsForDocuments(items.map((i) => i.name), documentRequirementsMap);
 
     const handleReceiptUpload = async (event) => {
         const file = event.target.files?.[0];
@@ -155,6 +181,8 @@ export default function PaymentPage() {
         setDocuments([]);
         setReference('');
         setPurpose('');
+        setPurposeChoice('');
+        setPurposeOther('');
         setPaymentMethod('');
         setOnlinePaymentType('gcash');
         router.push('/document-request');
@@ -308,20 +336,42 @@ export default function PaymentPage() {
 
                 {items.length > 0 && (
                     <>
-                        <label className={styles.purposeField}>
-                            <span className={styles.sectionTitle}>
-                                Purpose of Request <span className={styles.requiredMark}>*</span>
-                            </span>
+                        {submitRequirements.length > 0 && (
+                            <div className={styles.requirementsPanel}>
+                                <div className={styles.requirementsTitle}>Required documents / items</div>
+                                <ul className={styles.requirementsList}>
+                                    {submitRequirements.map((req) => (
+                                        <li key={req}>{req}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <div className={styles.sectionTitle}>
+                            Purpose of Request <span className={styles.requiredMark}>*</span>
+                        </div>
+                        <select
+                            className={styles.purposeSelect}
+                            value={purposeChoice}
+                            onChange={(e) => setPurposeChoice(e.target.value)}
+                            aria-required="true"
+                        >
+                            <option value="">Select purpose…</option>
+                            {commonPurposes.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                            ))}
+                            <option value="other">Other…</option>
+                        </select>
+                        {purposeChoice === 'other' && (
                             <textarea
                                 className={styles.purposeInput}
-                                placeholder="e.g. Employment, scholarship, loan application"
-                                value={purpose}
-                                onChange={(e) => setPurpose(e.target.value)}
+                                placeholder="Please specify your purpose"
+                                value={purposeOther}
+                                onChange={(e) => setPurposeOther(e.target.value)}
                                 rows={3}
                                 maxLength={250}
                                 aria-required="true"
                             />
-                        </label>
+                        )}
                         <p className={styles.purposeHint}>
                             Required for every request. Some certificates do not print this on the document, but the
                             barangay still keeps it on record.

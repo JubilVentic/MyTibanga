@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
+import { getRequirementsForDocuments } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
 const STATUS_OPTIONS = [
@@ -29,6 +30,23 @@ export default function RequestHistoryPage() {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
+    const [documentRequirementsMap, setDocumentRequirementsMap] = useState({});
+
+    useEffect(() => {
+        fetch('/api/request-config')
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((d) => {
+                if (d.documentRequirements) setDocumentRequirementsMap(d.documentRequirements);
+            })
+            .catch(() => {});
+    }, []);
+
+    const getRequirementsForRequest = (req) => {
+        if (!req) return [];
+        const names = (req.documents || []).map((d) => d.name).filter(Boolean);
+        if (names.length === 0 && req.document) names.push(req.document);
+        return getRequirementsForDocuments(names, documentRequirementsMap);
+    };
 
     const fetchRequests = useCallback(() => {
         fetch('/api/admin/requests')
@@ -319,12 +337,13 @@ export default function RequestHistoryPage() {
                                     </p>
                                 </div>
 
-                                {/* Requirements List */}
                                 <div className={styles.requirementsSection}>
                                     <h3 className={styles.docListTitle}>Requirements</h3>
-                                    <div className={styles.requirementItem}>
-                                        <span>• Purok Clearance</span>
-                                    </div>
+                                    {getRequirementsForRequest(selectedRequest).map((req) => (
+                                        <div key={req} className={styles.requirementItem}>
+                                            <span>• {req}</span>
+                                        </div>
+                                    ))}
                                 </div>
 
                                 {/* Rejection Reason */}

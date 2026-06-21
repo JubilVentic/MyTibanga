@@ -4,6 +4,7 @@ import { requireAdmin, requireAuth } from '@/lib/auth';
 import { priceLineItems } from '@/lib/documentFeeResolve';
 import { sendSMS, isPhilippineMobileSmsCapable } from '@/lib/sms';
 import { buildDocumentRequestSubmittedSms } from '@/lib/documentRequirements';
+import { loadDocumentRequirementsMap } from '@/lib/documentRequirementsServer';
 import { purgeExpiredPendingRequests } from '@/lib/requestExpiry';
 import {
     loadOrBooklet,
@@ -190,7 +191,8 @@ export async function POST(request) {
                 console.log('[SMS] user_id:', userIdForDb, 'phone:', phone);
                 if (phone) {
                     const reqNo = requestNo || id;
-                    const msg = buildDocumentRequestSubmittedSms(reqNo, priced);
+                    const requirementsMap = await loadDocumentRequirementsMap();
+                    const msg = buildDocumentRequestSubmittedSms(reqNo, priced, requirementsMap);
                     if (isPhilippineMobileSmsCapable(phone)) {
                         sendSMS(phone, msg)
                             .then((smsResult) => {

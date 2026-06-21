@@ -1,26 +1,50 @@
 /**
- * Document requirements shown to residents (SMS, tracker, etc.).
- * Expand REQUIREMENTS_BY_DOCUMENT as more certificates get their own lists.
+ * Document requirements and common purposes for the request flow.
+ * Admin overrides live in settings (documentRequirements, commonPurposes).
  */
 
-/** Requirement labels keyed by normalized document name. */
-const REQUIREMENTS_BY_DOCUMENT = {
-    'barangay clearance': ['Purok Clearance'],
-    'barangay certificate for solo parents': ['Purok Clearance'],
-    'barangay certificate for motorized banca': ['Purok Clearance'],
-    'barangay certificate of indigency': ['Purok Clearance'],
-    'barangay certificate of residency': ['Purok Clearance'],
+/** Default requirements per document name (admin can override in System Settings). */
+export const DEFAULT_DOCUMENT_REQUIREMENTS = {
+    'Barangay Clearance': ['Valid ID', 'Purok Clearance', 'Community Tax Certificate (Cedula)'],
+    'Barangay Certificate': ['Valid ID', 'Purok Clearance'],
+    'Barangay Certificate of Residency': ['Valid ID', 'Proof of residence'],
+    'Barangay Certificate of Indigency': ['Valid ID', 'Purok Clearance'],
+    'Barangay Certificate for Solo Parents': ['Valid ID', 'Purok Clearance', 'Proof of solo parent status'],
+    'Barangay Certificate for Motorized Banca': ['Valid ID', 'Boat registration documents'],
 };
+
+export const DEFAULT_COMMON_PURPOSES = [
+    'Employment',
+    'Scholarship',
+    'Loan application',
+    'Government transaction',
+    'School enrollment',
+    'Business permit',
+];
 
 const LEGACY_ALIASES = {
-    'certificate of indigency': 'barangay certificate of indigency',
-    'barangay certificate for solo parent': 'barangay certificate for solo parents',
-    'certificate of residency': 'barangay certificate of residency',
+    'certificate of indigency': 'Barangay Certificate of Indigency',
+    'barangay certificate for solo parent': 'Barangay Certificate for Solo Parents',
+    'certificate of residency': 'Barangay Certificate of Residency',
 };
 
-function normalizeDocumentName(name) {
-    const raw = String(name || '').trim().toLowerCase();
-    return LEGACY_ALIASES[raw] || raw;
+/** Normalize document name for lookup (matches fee/catalog naming). */
+export function normalizeDocumentName(name = '') {
+    const raw = String(name).trim();
+    const lowered = raw.toLowerCase();
+    if (!raw) return '';
+
+    const legacy = LEGACY_ALIASES[lowered];
+    if (legacy) return legacy;
+
+    if (/motorized\s*banca/.test(lowered)) return 'Barangay Certificate for Motorized Banca';
+    if (/solo\s*parents?/.test(lowered)) return 'Barangay Certificate for Solo Parents';
+    if (/indigency/.test(lowered)) return 'Barangay Certificate of Indigency';
+    if (/residency/.test(lowered)) return 'Barangay Certificate of Residency';
+    if (/clearance/.test(lowered)) return 'Barangay Clearance';
+    if (/barangay\s*certificate/.test(lowered)) return 'Barangay Certificate';
+
+    return raw;
 }
 
 function documentNames(documents) {
@@ -30,20 +54,53 @@ function documentNames(documents) {
         .filter(Boolean);
 }
 
-/** Unique requirement labels for the requested documents. */
-export function getRequirementsForDocuments(documents) {
-    const reqs = new Set();
-    for (const name of documentNames(documents)) {
-        const key = normalizeDocumentName(name);
-        const list = REQUIREMENTS_BY_DOCUMENT[key] || [];
-        list.forEach((req) => reqs.add(req));
+function lookupRequirementsList(docName, settingsMap = {}) {
+    const key = normalizeDocumentName(docName);
+    const candidates = [key, String(docName).trim(), loweredKey(docName)];
+    for (const k of candidates) {
+        const list = settingsMap[k];
+        if (Array.isArray(list) && list.length > 0) {
+            return list.filter(Boolean);
+        }
     }
-    return [...reqs];
+    return DEFAULT_DOCUMENT_REQUIREMENTS[key] || ['Valid ID', 'Purok Clearance'];
+}
+
+function loweredKey(docName) {
+    return normalizeDocumentName(docName).toLowerCase();
+}
+
+/** Requirements for one certificate. */
+export function getRequirementsForDocument(docName, settingsMap = {}) {
+    return lookupRequirementsList(docName, settingsMap);
+}
+
+/** Unique requirements for multiple documents in a request. */
+export function getRequirementsForDocuments(documents, settingsMap = {}) {
+    const seen = new Set();
+    const out = [];
+    for (const name of documentNames(documents)) {
+        for (const req of getRequirementsForDocument(name, settingsMap)) {
+            if (!seen.has(req)) {
+                seen.add(req);
+                out.push(req);
+            }
+        }
+    }
+    return out;
+}
+
+/** Checklist items for admin approve / notify flows. */
+export function buildRequirementChecklist(docNames, settingsMap = {}) {
+    return getRequirementsForDocuments(docNames, settingsMap).map((label, i) => ({
+        key: `req_${i}_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+        label,
+    }));
 }
 
 /** SMS body after a resident submits a document request. */
-export function buildDocumentRequestSubmittedSms(requestNo, documents) {
-    const requirements = getRequirementsForDocuments(documents);
+export function buildDocumentRequestSubmittedSms(requestNo, documents, settingsMap = {}) {
+    const requirements = getRequirementsForDocuments(documents, settingsMap);
     let msg = `MyTibangaPortal: Your document request (${requestNo}) has been submitted.`;
     if (requirements.length > 0) {
         msg += ` Please prepare: ${requirements.join(', ')}.`;

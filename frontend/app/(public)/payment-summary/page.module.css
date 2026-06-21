@@ -101,6 +101,28 @@
     font-weight: 600;
 }
 
+.requirementsPanel {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #f0f6ff;
+    border: 1px solid #c5d9f7;
+    border-radius: 8px;
+}
+
+.requirementsTitle {
+    font-weight: 600;
+    color: #0147AE;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+}
+
+.requirementsList {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #333;
+    font-size: 0.88rem;
+}
+
 /* Request Details */
 .requestDetails {
     margin-bottom: 2rem;

@@ -9,6 +9,7 @@ const FaceScanner = dynamic(() => import('@/components/FaceScanner'), { ssr: fal
 const ALL_TABS = [
     { key: 'profile', label: 'Admin Profile', permission: null }, // always visible
     { key: 'fees', label: 'Document & Fees', permission: 'fees' },
+    { key: 'request-config', label: 'Request Settings', permission: 'fees' },
     { key: 'or-booklet', label: 'Official Receipt (OR)', permission: 'fees' },
     { key: 'request-expiry', label: 'Request Expiry', permission: 'request-expiry' },
     { key: 'announcements', label: 'Announcements', permission: 'announcements' },
@@ -50,6 +51,10 @@ export default function SystemSettingsPage() {
     const [permissions, setPermissions] = useState([]);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [adminUsers, setAdminUsers] = useState([]);
+    const [commonPurposes, setCommonPurposes] = useState([]);
+    const [documentRequirements, setDocumentRequirements] = useState({});
+    const [newPurpose, setNewPurpose] = useState('');
+    const [requestConfigSavedAt, setRequestConfigSavedAt] = useState('');
 
     // Profile form
     const [profileForm, setProfileForm] = useState({ name: '', email: '', currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -96,6 +101,12 @@ export default function SystemSettingsPage() {
             setPermissions(data.permissions || []);
             setIsSuperAdmin(data.isSuperAdmin || false);
             setAdminUsers(data.adminUsers || []);
+            setCommonPurposes(Array.isArray(data.commonPurposes) ? data.commonPurposes : []);
+            setDocumentRequirements(
+                data.documentRequirements && typeof data.documentRequirements === 'object'
+                    ? data.documentRequirements
+                    : {}
+            );
             if (data.orBooklet) {
                 setOrBookletForm({
                     nextOr: String(data.orBooklet.nextOr ?? ''),
@@ -495,6 +506,38 @@ export default function SystemSettingsPage() {
         }
     };
 
+    const handleRequestConfigSave = async () => {
+        const data = await apiPatch({
+            section: 'request-config',
+            commonPurposes: commonPurposes.filter(Boolean),
+            documentRequirements,
+        });
+        if (data.success) {
+            setRequestConfigSavedAt(new Date().toLocaleString());
+            showToast('Request settings updated');
+        } else {
+            showToast(data.error || 'Failed to update request settings', 'error');
+        }
+    };
+
+    const addPurpose = () => {
+        const p = newPurpose.trim();
+        if (!p) return;
+        if (!commonPurposes.includes(p)) {
+            setCommonPurposes((prev) => [...prev, p]);
+        }
+        setNewPurpose('');
+    };
+
+    const removePurpose = (p) => {
+        setCommonPurposes((prev) => prev.filter((x) => x !== p));
+    };
+
+    const setDocRequirementsText = (docName, text) => {
+        const list = String(text).split('\n').map((s) => s.trim()).filter(Boolean);
+        setDocumentRequirements((prev) => ({ ...prev, [docName]: list }));
+    };
+
     // ── Format date ──
     const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -746,6 +789,66 @@ export default function SystemSettingsPage() {
                     {paymentSavedAt && (
                         <p style={{ marginTop: 10, fontSize: '0.8rem', color: '#6b7280' }}>
                             Last saved: {paymentSavedAt}
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {/* ── TAB: Request Settings ── */}
+            {currentTabKey === 'request-config' && (
+                <div className={styles.card}>
+                    <h3 className={styles.cardTitle}>Common Request Purposes</h3>
+                    <p className={styles.permHint} style={{ marginTop: 0 }}>
+                        Shown as a dropdown on the payment page. Residents can pick a preset or choose &quot;Other&quot; to type their own.
+                    </p>
+                    <div className={styles.addRow}>
+                        <input
+                            className={styles.formInput}
+                            placeholder="Add purpose…"
+                            value={newPurpose}
+                            onChange={(e) => setNewPurpose(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addPurpose()}
+                        />
+                        <button className={styles.btnPrimary} type="button" onClick={addPurpose}>Add</button>
+                    </div>
+                    {commonPurposes.length === 0 ? (
+                        <div className={styles.emptyState}>No common purposes configured</div>
+                    ) : (
+                        commonPurposes.map((p) => (
+                            <div key={p} className={styles.listItem}>
+                                <span className={styles.purokName}>{p}</span>
+                                <div className={styles.listItemActions}>
+                                    <button className={styles.btnDanger} type="button" onClick={() => removePurpose(p)}>Remove</button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+
+                    <h3 className={styles.cardTitle} style={{ marginTop: 28 }}>Document Requirements</h3>
+                    <p className={styles.permHint} style={{ marginTop: 0 }}>
+                        One requirement per line for each certificate. Shown to residents when selecting documents and to admins when validating requests.
+                    </p>
+                    {fees.map((f) => (
+                        <div key={f.name} className={styles.formGroup}>
+                            <label className={styles.formLabel}>{f.name}</label>
+                            <textarea
+                                className={styles.formTextarea}
+                                rows={3}
+                                value={(documentRequirements[f.name] || []).join('\n')}
+                                onChange={(e) => setDocRequirementsText(f.name, e.target.value)}
+                                placeholder={'Valid ID\nPurok Clearance'}
+                            />
+                        </div>
+                    ))}
+
+                    <div className={styles.btnRow}>
+                        <button className={styles.btnPrimary} type="button" onClick={handleRequestConfigSave}>
+                            Save Request Settings
+                        </button>
+                    </div>
+                    {requestConfigSavedAt && (
+                        <p className={styles.permHint} style={{ marginTop: 10, marginBottom: 0 }}>
+                            Last saved: {requestConfigSavedAt}
                         </p>
                     )}
                 </div>
