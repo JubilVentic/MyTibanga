@@ -11,6 +11,7 @@ import {
 import { usePolling } from '@/hooks/usePolling';
 import styles from './page.module.css';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
+import RcdReport from '@/components/RcdReport';
 
 const TibangaMap = dynamic(() => import('@/components/TibangaMap'), { ssr: false });
 
@@ -23,6 +24,7 @@ const AGE_COLORS = [
 const REPORT_OPTIONS = [
     { value: 'monthlyDocs', label: 'Documents Requested Summary' },
     { value: 'collectionSummary', label: 'Collection Summary' },
+    { value: 'rcd', label: 'Report of Collection and Deposits (RCD)' },
     { value: 'ageByPurok', label: 'Age Distribution per Purok' },
     { value: 'purokMap', label: 'Residents per Purok' },
 ];
@@ -44,6 +46,10 @@ export default function ReportsPage() {
     const [selectedDocument, setSelectedDocument] = useState('all');
 
     const fetchReport = useCallback((options = { silent: false }) => {
+        if (selectedReport === 'rcd') {
+            setLoading(false);
+            return;
+        }
         if (!options.silent) setLoading(true);
         const params = new URLSearchParams();
         if (selectedReport === 'monthlyDocs' || selectedReport === 'collectionSummary') {
@@ -610,7 +616,19 @@ export default function ReportsPage() {
         <>
             {dialogs}
         <div className={styles.reports}>
-            {loading && !data ? (
+            {selectedReport === 'rcd' ? (
+                <>
+                    <div className={styles.reportSelector}>
+                        <label className={styles.selectorLabel}>Select Report</label>
+                        <select className={styles.selectorDropdown} value={selectedReport} onChange={e => setSelectedReport(e.target.value)}>
+                            {REPORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    </div>
+                    <div className={styles.chartCard}>
+                        <RcdReport />
+                    </div>
+                </>
+            ) : loading && !data ? (
                 <div className={styles.loadingState}>Loading report data...</div>
             ) : (
                 <>

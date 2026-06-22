@@ -27,9 +27,25 @@
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.statCard:hover {
+.statCardClickable {
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+}
+
+.statCardClickable:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.statCardClickable:focus-visible {
+    outline: 2px solid #0147AE;
+    outline-offset: 2px;
+}
+
+.statCardClickable:active {
+    transform: translateY(-2px);
 }
 
 .statNumber {
@@ -43,8 +59,8 @@
     color: #ff9800;
 }
 
-.approvalNumber {
-    color: #4caf50;
+.validationNumber {
+    color: #2196f3;
 }
 
 .residentsNumber {
@@ -55,6 +71,19 @@
     font-size: 0.95rem;
     color: #666;
     font-weight: 500;
+}
+
+.statHint {
+    font-size: 0.78rem;
+    color: #0147AE;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.statCardClickable:hover .statHint,
+.statCardClickable:focus-visible .statHint {
+    opacity: 1;
 }
 
 /* ==================== SECTIONS ==================== */

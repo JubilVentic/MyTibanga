@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,8 +50,10 @@ function formatPaymentMethod(method) {
 
 export default function AdminDashboardPage() {
     useAuth();
+    const router = useRouter();
     const { showAlert, dialogs } = useAppDialogs();
     const normalizePurpose = (value = '') => String(value).trim().replace(/\s+/g, ' ');
+    const requestManagementRef = useRef(null);
 
     const [requests, setRequests] = useState([]);
     const [residents, setResidents] = useState([]);
@@ -171,8 +174,20 @@ export default function AdminDashboardPage() {
 
     // ── Counts ──
     const pendingRequests = visibleRequests.filter((r) => r.status === 'pending');
-    const approvedRequests = visibleRequests.filter((r) => r.status === 'approved' || r.status === 'completed');
+    const validationRequests = visibleRequests.filter((r) => r.status === 'approved');
     const totalResidents = residents.length;
+
+    const scrollToRequestManagement = () => {
+        requestAnimationFrame(() => {
+            requestManagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    };
+
+    const applyStatusFilter = (status) => {
+        setStatusFilter(status);
+        setCurrentPage(1);
+        scrollToRequestManagement();
+    };
 
     const counts = {
         all: visibleRequests.length,
@@ -371,26 +386,50 @@ export default function AdminDashboardPage() {
         <div className={styles.dashboard}>
             {/* ── Stat Cards ── */}
             <div className={styles.statCards}>
-                <div className={styles.statCard}>
+                <button
+                    type="button"
+                    className={`${styles.statCard} ${styles.statCardClickable}`}
+                    onClick={() => applyStatusFilter('all')}
+                    aria-label="View all requests"
+                >
                     <span className={styles.statNumber}>{visibleRequests.length}</span>
                     <span className={styles.statLabel}>Total Requests</span>
-                </div>
-                <div className={styles.statCard}>
+                    <span className={styles.statHint}>View all</span>
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.statCard} ${styles.statCardClickable}`}
+                    onClick={() => applyStatusFilter('pending')}
+                    aria-label="View pending requests"
+                >
                     <span className={`${styles.statNumber} ${styles.pendingNumber}`}>{String(pendingRequests.length).padStart(2, '0')}</span>
                     <span className={styles.statLabel}>Pending</span>
-                </div>
-                <div className={styles.statCard}>
-                    <span className={`${styles.statNumber} ${styles.approvalNumber}`}>{approvedRequests.length}</span>
-                    <span className={styles.statLabel}>Approved</span>
-                </div>
-                <div className={styles.statCard}>
+                    <span className={styles.statHint}>View pending</span>
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.statCard} ${styles.statCardClickable}`}
+                    onClick={() => applyStatusFilter('approved')}
+                    aria-label="View requests in validation"
+                >
+                    <span className={`${styles.statNumber} ${styles.validationNumber}`}>{validationRequests.length}</span>
+                    <span className={styles.statLabel}>Validation</span>
+                    <span className={styles.statHint}>View validation</span>
+                </button>
+                <button
+                    type="button"
+                    className={`${styles.statCard} ${styles.statCardClickable}`}
+                    onClick={() => router.push('/resident-records')}
+                    aria-label="View resident records"
+                >
                     <span className={`${styles.statNumber} ${styles.residentsNumber}`}>{totalResidents > 0 ? totalResidents : '—'}</span>
                     <span className={styles.statLabel}>Residents</span>
-                </div>
+                    <span className={styles.statHint}>View records</span>
+                </button>
             </div>
 
             {/* ── Request Management Section ── */}
-            <div className={styles.section}>
+            <div className={styles.section} ref={requestManagementRef}>
                 <h3 className={styles.sectionTitle}>Request Management</h3>
 
                 {/* Status Tabs */}
