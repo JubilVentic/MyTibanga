@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import TimeDisplay from '@/components/TimeDisplay';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
 import { priceLineItems } from '@/lib/documentFeeResolve';
@@ -12,6 +13,7 @@ import styles from './page.module.css';
 
 export default function PaymentPage() {
     const router = useRouter();
+    const { showAlert, dialogs } = useAppDialogs();
     const { user } = useAuth();
     const [documents, setDocuments] = useState([]);
     const [documentFees, setDocumentFees] = useState([]);
@@ -153,9 +155,9 @@ export default function PaymentPage() {
     const copyText = async (value) => {
         try {
             await navigator.clipboard.writeText(value);
-            alert('Copied to clipboard.');
+            showAlert('Copied', 'Copied to clipboard.');
         } catch {
-            alert('Copy failed. Please copy manually.');
+            showAlert('Copy failed', 'Please copy manually.');
         }
     };
 
@@ -197,20 +199,20 @@ export default function PaymentPage() {
 
     const handleSubmit = async () => {
         if (!paymentMethod) {
-            alert('Please select a payment method.');
+            showAlert('Payment method required', 'Please select a payment method.');
             return;
         }
         if (paymentMethod === 'online' && !onlinePaymentEnabled) {
-            alert('Online payment is not available. Please use cash.');
+            showAlert('Online payment unavailable', 'Online payment is not available. Please use cash.');
             return;
         }
         if (paymentMethod === 'online' && !reference.trim()) {
-            alert('Please enter a reference number for online payment.');
+            showAlert('Reference required', 'Please enter a reference number for online payment.');
             return;
         }
 
         if (items.length === 0) {
-            alert('No documents in your request. Go back and select documents first.');
+            showAlert('No documents', 'No documents in your request. Go back and select documents first.');
             return;
         }
 
@@ -220,7 +222,7 @@ export default function PaymentPage() {
             return;
         }
         if (purposeText.length > 250) {
-            alert('Purpose must be 250 characters or less.');
+            showAlert('Purpose too long', 'Purpose must be 250 characters or less.');
             return;
         }
 
@@ -254,7 +256,7 @@ export default function PaymentPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(data.error || 'Could not save your request. Please try again.');
+                showAlert('Request failed', data.error || 'Could not save your request. Please try again.');
                 setSubmitting(false);
                 return;
             }
@@ -267,7 +269,7 @@ export default function PaymentPage() {
 
             router.push('/payment-summary');
         } catch {
-            alert('Could not save your request. Check your connection and try again.');
+            showAlert('Request failed', 'Could not save your request. Check your connection and try again.');
         } finally {
             setSubmitting(false);
         }
@@ -275,6 +277,7 @@ export default function PaymentPage() {
 
     return (
         <>
+            {dialogs}
             <ConfirmDialog
                 open={purposeDialogOpen}
                 title="Purpose required"

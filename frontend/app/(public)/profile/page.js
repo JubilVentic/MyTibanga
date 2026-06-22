@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import TimeDisplay from '@/components/TimeDisplay';
 import { formatChildrenWithAges, formatNameWithDeceased } from '@/lib/residentChildren';
 import styles from './page.module.css';
 
 export default function ProfilePage() {
+    const router = useRouter();
     const { user } = useAuth();
     const [profile, setProfile] = useState(null);
     const [resident, setResident] = useState(null);
+    const [mustChangePassword, setMustChangePassword] = useState(false);
     const [editing, setEditing] = useState(false);
     const [changingPassword, setChangingPassword] = useState(false);
 
@@ -38,6 +41,11 @@ export default function ProfilePage() {
                 if (data.user) {
                     setProfile(data.user);
                     setEmail(data.user.email || '');
+                    const forced = data.user.mustChangePassword === true;
+                    setMustChangePassword(forced);
+                    if (forced) {
+                        setChangingPassword(true);
+                    }
                 }
                 if (data.resident) {
                     setResident(data.resident);
@@ -49,6 +57,8 @@ export default function ProfilePage() {
             })
             .catch(() => { });
     }, []);
+
+    const forcedPasswordChange = mustChangePassword;
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -173,6 +183,10 @@ export default function ProfilePage() {
             showNotification('New passwords do not match', 'error');
             return;
         }
+        if (newPassword.trim().length < 6) {
+            showNotification('New password must be at least 6 characters', 'error');
+            return;
+        }
 
         setSaving(true);
         try {
@@ -185,9 +199,13 @@ export default function ProfilePage() {
             if (data.success) {
                 showNotification('Password changed successfully!', 'success');
                 setChangingPassword(false);
+                setMustChangePassword(false);
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
+                if (forcedPasswordChange) {
+                    setTimeout(() => router.push('/document-request'), 1200);
+                }
             } else {
                 showNotification(data.error || 'Password change failed', 'error');
             }
@@ -214,6 +232,12 @@ export default function ProfilePage() {
             <div className={styles.profileContainer}>
                 <h1 className={styles.pageTitle}>My Profile</h1>
 
+                {forcedPasswordChange && (
+                    <div className={styles.forcedBanner}>
+                        For your security, please set a new password before using the portal.
+                    </div>
+                )}
+
                 {/* Profile Header Card */}
                 <div className={styles.profileCard}>
                     <div className={styles.profileHeader}>
@@ -229,6 +253,8 @@ export default function ProfilePage() {
                                 className={styles.avatarEditBtn}
                                 onClick={() => setShowPictureOptions(!showPictureOptions)}
                                 title="Change profile picture"
+                                disabled={forcedPasswordChange}
+                                style={forcedPasswordChange ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                             >
                                 ✎
                             </button>
@@ -277,15 +303,17 @@ export default function ProfilePage() {
                 <div className={styles.infoCard}>
                     <div className={styles.cardHeader}>
                         <h3 className={styles.cardTitle}>Personal Information</h3>
-                        {!editing ? (
-                            <button className={styles.editBtn} onClick={() => setEditing(true)}>Edit</button>
-                        ) : (
-                            <div className={styles.editActions}>
-                                <button className={styles.cancelBtn} onClick={() => setEditing(false)}>Cancel</button>
-                                <button className={styles.saveBtn} onClick={handleSaveInfo} disabled={saving}>
-                                    {saving ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
+                        {!forcedPasswordChange && (
+                            !editing ? (
+                                <button className={styles.editBtn} onClick={() => setEditing(true)}>Edit</button>
+                            ) : (
+                                <div className={styles.editActions}>
+                                    <button className={styles.cancelBtn} onClick={() => setEditing(false)}>Cancel</button>
+                                    <button className={styles.saveBtn} onClick={handleSaveInfo} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                            )
                         )}
                     </div>
 
@@ -446,19 +474,26 @@ export default function ProfilePage() {
                 <div className={styles.infoCard}>
                     <div className={styles.cardHeader}>
                         <h3 className={styles.cardTitle}>Password</h3>
-                        {!changingPassword ? (
-                            <button className={styles.editBtn} onClick={() => setChangingPassword(true)}>
-                                Change Password
+                        {!forcedPasswordChange && (
+                            !changingPassword ? (
+                                <button className={styles.editBtn} onClick={() => setChangingPassword(true)}>
+                                    Change Password
+                                </button>
+                            ) : (
+                                <div className={styles.editActions}>
+                                    <button className={styles.cancelBtn} onClick={() => { setChangingPassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
+                                        Cancel
+                                    </button>
+                                    <button className={styles.saveBtn} onClick={handleChangePassword} disabled={saving}>
+                                        {saving ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                            )
+                        )}
+                        {forcedPasswordChange && changingPassword && (
+                            <button className={styles.saveBtn} onClick={handleChangePassword} disabled={saving}>
+                                {saving ? 'Saving...' : 'Save new password'}
                             </button>
-                        ) : (
-                            <div className={styles.editActions}>
-                                <button className={styles.cancelBtn} onClick={() => { setChangingPassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
-                                    Cancel
-                                </button>
-                                <button className={styles.saveBtn} onClick={handleChangePassword} disabled={saving}>
-                                    {saving ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
                         )}
                     </div>
 

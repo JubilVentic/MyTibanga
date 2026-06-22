@@ -20,6 +20,17 @@
     margin: 0 0 24px;
 }
 
+.forcedBanner {
+    background: #fff8e1;
+    border: 1px solid #ffcc80;
+    color: #e65100;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
 /* ==================== PROFILE HEADER CARD ==================== */
 .profileCard {
     background: white;

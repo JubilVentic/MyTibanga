@@ -95,7 +95,12 @@ export default function LoginPageContent({ variant = 'resident' }) {
 
             if (res.ok && data.success) {
                 showNotification('Login successful! Redirecting...', 'success');
-                const redirectTo = data.user?.role === 'admin' ? '/admin-dashboard' : '/document-request';
+                let redirectTo = '/document-request';
+                if (data.user?.mustChangePassword) {
+                    redirectTo = '/profile?mustChangePassword=1';
+                } else if (data.user?.role === 'admin') {
+                    redirectTo = '/admin-dashboard';
+                }
                 setTimeout(() => router.push(redirectTo), 1500);
             } else {
                 throw new Error(data.message || 'Invalid username or password');

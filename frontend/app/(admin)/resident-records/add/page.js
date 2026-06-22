@@ -5,7 +5,43 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { validateSoloParentSector } from '@/lib/residentValidation';
+import { formatResidentAccountSmsNote } from '@/lib/residentWelcomeSms';
+import { generateResidentUsername } from '@/lib/residentUsername';
+import ResidentCredentialDialog from '@/components/ResidentCredentialDialog';
+
+const EMPTY_FORM = {
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    suffix: '',
+    sex: '',
+    civilStatus: '',
+    birthdate: '',
+    birthplace: '',
+    religion: '',
+    household: '',
+    housingStatus: '',
+    sector: '',
+    soloParent: false,
+    citizenship: '',
+    purok: '',
+    barangay: 'Tibanga',
+    city: 'Iligan City',
+    mobileNumber: '',
+    email: '',
+    mothersMaidenName: '',
+    fathersName: '',
+    spousesName: '',
+    motherDeceased: false,
+    fatherDeceased: false,
+    spouseDeceased: false,
+    children: [''],
+    childrenAges: [''],
+    username: '',
+    idPicture: null,
+};
 
 const RELIGION_OPTIONS = [
     'Roman Catholic',
@@ -28,38 +64,8 @@ const SECTOR_OPTIONS = [
 
 export default function AddResidentPage() {
     const router = useRouter();
-    const [form, setForm] = useState({
-        firstName: '',
-        middleName: '',
-        lastName: '',
-        suffix: '',
-        sex: '',
-        civilStatus: '',
-        birthdate: '',
-        birthplace: '',
-        religion: '',
-        household: '',
-        housingStatus: '',
-        sector: '',
-        soloParent: false,
-        citizenship: '',
-        purok: '',
-        barangay: 'Tibanga',
-        city: 'Iligan City',
-        mobileNumber: '',
-        email: '',
-        mothersMaidenName: '',
-        fathersName: '',
-        spousesName: '',
-        motherDeceased: false,
-        fatherDeceased: false,
-        spouseDeceased: false,
-        children: [''],
-        childrenAges: [''],
-        username: '',
-        password: '1234',
-        idPicture: null,
-    });
+    const { showAlert, dialogs } = useAppDialogs();
+    const [form, setForm] = useState(EMPTY_FORM);
 
     const [puroks, setPuroks] = useState([]);
     const [households, setHouseholds] = useState([]);
@@ -70,6 +76,7 @@ export default function AddResidentPage() {
     const [soloParentDialogOpen, setSoloParentDialogOpen] = useState(false);
     const [residentCount, setResidentCount] = useState(null);
     const [cameraActive, setCameraActive] = useState(false);
+    const [credentialDialog, setCredentialDialog] = useState(null);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const streamRef = useRef(null);
@@ -101,15 +108,11 @@ export default function AddResidentPage() {
             if (field === 'mothersMaidenName' && !String(value).trim()) updated.motherDeceased = false;
             if (field === 'fathersName' && !String(value).trim()) updated.fatherDeceased = false;
             if (field === 'spousesName' && !String(value).trim()) updated.spouseDeceased = false;
-            // Auto-generate username as firstname.lastname (middle name excluded)
             if (['firstName', 'lastName'].includes(field)) {
-                const first = field === 'firstName' ? value : prev.firstName;
-                const last = field === 'lastName' ? value : prev.lastName;
-                if (first && last) {
-                    const firstPart = first.toLowerCase().trim().replace(/\s+/g, '');
-                    const lastPart = last.toLowerCase().trim().replace(/\s+/g, '');
-                    updated.username = `${firstPart}.${lastPart}`;
-                }
+                updated.username = generateResidentUsername({
+                    firstName: field === 'firstName' ? value : prev.firstName,
+                    lastName: field === 'lastName' ? value : prev.lastName,
+                });
             }
             return updated;
         });
@@ -185,7 +188,10 @@ export default function AddResidentPage() {
             streamRef.current = stream;
             setCameraActive(true);
         } catch (err) {
-            alert('Could not access camera. Please allow camera permission or use the upload option.');
+            showAlert(
+                'Camera unavailable',
+                'Could not access camera. Please allow camera permission or use the upload option.'
+            );
         }
     }, []);
 
@@ -219,6 +225,14 @@ export default function AddResidentPage() {
         }
     }, [stopCamera]);
 
+    const resetForm = useCallback(() => {
+        stopCamera();
+        setForm(EMPTY_FORM);
+        setReligionOption('');
+        setReligionOther('');
+        setIdPreview(null);
+    }, [stopCamera]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         const soloErr = validateSoloParentSector(form.sector, form.children);
@@ -238,13 +252,33 @@ export default function AddResidentPage() {
             const data = await res.json();
 
             if (data.success) {
-                alert('Resident added successfully!');
-                router.push('/resident-records');
+                const username = data.account?.username || data.resident?.username || '—';
+                const smsNote = formatResidentAccountSmsNote({
+                    smsSent: data.account?.smsSent,
+                    smsReason: data.account?.smsReason,
+                    accountCreated: data.account?.accountCreated,
+                });
+                const residentName = `${data.resident?.firstName || form.firstName} ${data.resident?.lastName || form.lastName}`.trim();
+                if (data.account?.accountCreated && data.account?.tempPassword) {
+                    setCredentialDialog({
+                        residentName,
+                        username,
+                        tempPassword: data.account.tempPassword,
+                        smsSent: data.account?.smsSent,
+                        smsReason: data.account?.smsReason,
+                    });
+                } else {
+                    showAlert(
+                        'Resident added successfully',
+                        `Username: ${username}\n\n${smsNote}`,
+                        { onClose: () => router.push('/resident-records') }
+                    );
+                }
             } else {
-                alert('Error: ' + (data.message || 'Failed to save'));
+                showAlert('Cannot save resident', data.message || 'Failed to save');
             }
         } catch (err) {
-            alert('Error saving resident: ' + err.message);
+            showAlert('Cannot save resident', err.message || 'Error saving resident');
         } finally {
             setIsSubmitting(false);
         }
@@ -266,6 +300,25 @@ export default function AddResidentPage() {
 
     return (
         <>
+            {dialogs}
+            <ResidentCredentialDialog
+                open={!!credentialDialog}
+                title="Resident added successfully"
+                residentName={credentialDialog?.residentName}
+                username={credentialDialog?.username}
+                tempPassword={credentialDialog?.tempPassword}
+                smsSent={credentialDialog?.smsSent}
+                smsReason={credentialDialog?.smsReason}
+                showAddAnother
+                onAddAnother={() => {
+                    setCredentialDialog(null);
+                    resetForm();
+                }}
+                onDone={() => {
+                    setCredentialDialog(null);
+                    router.push('/resident-records');
+                }}
+            />
             <ConfirmDialog
                 open={soloParentDialogOpen}
                 title="Cannot save resident"
@@ -524,7 +577,10 @@ export default function AddResidentPage() {
                 {/* Account Credentials */}
                 <fieldset className={styles.formSection}>
                     <legend className={styles.sectionTitle}>Account Credentials</legend>
-                    <p className={styles.credentialsNote}>Auto-generated as firstname.lastname (first and last name only). Default password is simple for easy first login.</p>
+                    <p className={styles.credentialsNote}>
+                        Username is auto-generated as firstname.lastname. A 6-digit PIN is sent
+                        by SMS to the resident&apos;s mobile — not the username.
+                    </p>
                     <div className={styles.formRowTwo}>
                         <div className={styles.credentialField}>
                             <label className={styles.credentialLabel}>Username</label>
@@ -533,14 +589,8 @@ export default function AddResidentPage() {
                                 onChange={(e) => handleChange('username', e.target.value)}
                                 placeholder="firstname.lastname" readOnly />
                         </div>
-                        <div className={styles.credentialField}>
-                            <label className={styles.credentialLabel}>Default Password</label>
-                            <input type="text" className={`${styles.input} ${styles.credentialInput}`}
-                                value={form.password}
-                                onChange={(e) => handleChange('password', e.target.value)} />
-                        </div>
                     </div>
-                    <p className={styles.credentialsHint}>⚠ Resident will be asked to change password on first login.</p>
+                    <p className={styles.credentialsHint}>⚠ Resident must change password on first login.</p>
                 </fieldset>
 
                 {/* ID Picture */}

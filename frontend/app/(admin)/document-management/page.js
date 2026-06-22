@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import styles from './page.module.css';
 
 export default function DocumentManagementPage() {
+    const { showAlert, confirm, dialogs } = useAppDialogs();
     const [documents, setDocuments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [previewDoc, setPreviewDoc] = useState(null);
@@ -24,13 +26,16 @@ export default function DocumentManagementPage() {
             const res = await fetch('/api/admin/documents');
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(data.error || 'Could not load documents. Check database and Supabase Storage settings.');
+                showAlert(
+                    'Could not load documents',
+                    data.error || 'Check database and Supabase Storage settings.'
+                );
                 setDocuments([]);
                 return;
             }
             setDocuments(data.documents || []);
         } catch {
-            alert('Could not load documents. Check your connection and try again.');
+            showAlert('Could not load documents', 'Check your connection and try again.');
             setDocuments([]);
         }
     };
@@ -61,7 +66,10 @@ export default function DocumentManagementPage() {
 
     const handleUpload = async () => {
         const file = fileRef.current?.files[0];
-        if (!file) return alert('Please select a file.');
+        if (!file) {
+            showAlert('No file selected', 'Please select a file.');
+            return;
+        }
 
         setUploading(true);
         const formData = new FormData();
@@ -83,9 +91,12 @@ export default function DocumentManagementPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.success) {
                 const msg = data.error || `Upload failed (${res.status})`;
-                alert(msg.includes('SUPABASE') || msg.includes('Storage') || msg.includes('bucket')
-                    ? `${msg}\n\nCheck Vercel env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and create a Storage bucket named "documents".`
-                    : msg);
+                showAlert(
+                    'Upload failed',
+                    msg.includes('SUPABASE') || msg.includes('Storage') || msg.includes('bucket')
+                        ? `${msg}\n\nCheck Vercel env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and create a Storage bucket named "documents".`
+                        : msg
+                );
                 return;
             }
             await fetchDocuments();
@@ -95,14 +106,19 @@ export default function DocumentManagementPage() {
             if (fileRef.current) fileRef.current.value = '';
             if (previewRef.current) previewRef.current.value = '';
         } catch {
-            alert('Upload error. Check the terminal or browser Network tab for details.');
+            showAlert('Upload error', 'Check the terminal or browser Network tab for details.');
         } finally {
             setUploading(false);
         }
     };
 
     const handleDelete = async (doc) => {
-        if (!confirm(`Delete "${doc.name}"? This will remove the file permanently.`)) return;
+        const ok = await confirm({
+            title: 'Delete document?',
+            message: `Delete "${doc.name}"? This will remove the file permanently.`,
+            confirmLabel: 'Delete',
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch('/api/admin/documents', {
@@ -115,10 +131,10 @@ export default function DocumentManagementPage() {
                 fetchDocuments();
                 if (previewDoc?.id === doc.id) setPreviewDoc(null);
             } else {
-                alert('Delete failed: ' + (data.error || res.statusText || 'Unknown error'));
+                showAlert('Delete failed', data.error || res.statusText || 'Unknown error');
             }
         } catch {
-            alert('Delete error');
+            showAlert('Delete failed', 'Could not delete the document.');
         }
     };
 
@@ -144,10 +160,10 @@ export default function DocumentManagementPage() {
             if (data.success) {
                 fetchDocuments();
             } else {
-                alert('Update failed: ' + (data.error || 'Unknown error'));
+                showAlert('Update failed', data.error || 'Unknown error');
             }
         } catch {
-            alert('Update error');
+            showAlert('Update failed', 'Could not update the document.');
         } finally {
             setUpdatingId(null);
             if (updateFileRef.current) updateFileRef.current.value = '';
@@ -163,13 +179,15 @@ export default function DocumentManagementPage() {
             });
             const data = await res.json();
             if (data.success) fetchDocuments();
-            else alert(data.error || 'Could not update purpose setting');
+            else showAlert('Update failed', data.error || 'Could not update purpose setting');
         } catch {
-            alert('Could not update purpose setting');
+            showAlert('Update failed', 'Could not update purpose setting');
         }
     };
 
     return (
+        <>
+            {dialogs}
         <div className={styles.page}>
             {/* Hidden file input for update */}
             <input type="file" ref={updateFileRef} style={{ display: 'none' }} onChange={handleUpdate} />
@@ -311,5 +329,6 @@ export default function DocumentManagementPage() {
                 </Portal>
             )}
         </div>
+        </>
     );
 }

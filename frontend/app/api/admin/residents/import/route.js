@@ -4,6 +4,9 @@ import { query } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { normalizeChildrenArrays } from '@/lib/residentChildren';
 import { validateSoloParentSector } from '@/lib/residentValidation';
+import { generateRandomPassword } from '@/lib/generatePassword';
+import { sendResidentWelcomeSms } from '@/lib/residentWelcomeSms';
+import { generateResidentUsername } from '@/lib/residentUsername';
 
 function parseCsvLine(line) {
     const out = [];
@@ -37,7 +40,8 @@ function rowToObject(headers, values) {
     return obj;
 }
 
-async function insertResident(body, plainPassword) {
+async function insertResident(body) {
+    const plainPassword = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const childList = body.children
         ? String(body.children).split(';').map((s) => s.trim()).filter(Boolean)
@@ -58,10 +62,11 @@ async function insertResident(body, plainPassword) {
     if (!firstName || !lastName) throw new Error('firstName and lastName are required');
     if (!purok) throw new Error('purok is required');
 
-    let username = String(body.username || '').trim();
-    if (!username) {
-        username = `${firstName.toLowerCase().replace(/\s+/g, '')}.${lastName.toLowerCase().replace(/\s+/g, '')}`;
-    }
+    let username = generateResidentUsername({
+        firstName,
+        lastName,
+        explicitUsername: body.username,
+    });
 
     const { rows: dupUser } = await query(
         'SELECT id FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1',
@@ -96,12 +101,13 @@ async function insertResident(body, plainPassword) {
 
     const displayName = `${firstName} ${lastName}`.trim();
     await query(
-        `INSERT INTO users (name, username, email, password, role)
-         VALUES ($1,$2,$3,$4,$5)`,
-        [displayName, username, body.email || '', hashedPassword, 'resident']
+        `INSERT INTO users (name, username, email, password, role, mobile_number, must_change_password)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [displayName, username, body.email || '', hashedPassword, 'resident', body.mobileNumber || '', true]
     );
 
-    return { username };
+    const sms = await sendResidentWelcomeSms(body.mobileNumber, plainPassword);
+    return { username, smsSent: sms.sent, smsReason: sms.reason || '', tempPassword: plainPassword };
 }
 
 export async function POST(request) {
@@ -138,11 +144,14 @@ export async function POST(request) {
             if (values.every((v) => !String(v).trim())) continue;
             const row = rowToObject(headers, values);
             try {
-                const { username } = await insertResident(row, '1234');
+                const { username, smsSent, smsReason, tempPassword } = await insertResident(row);
                 imported.push({
                     row: i + 1,
                     name: `${row.firstName} ${row.lastName}`.trim(),
                     username,
+                    tempPassword,
+                    smsSent,
+                    smsReason: smsSent ? '' : smsReason,
                 });
             } catch (err) {
                 errors.push({ row: i + 1, message: err.message || 'Import failed' });

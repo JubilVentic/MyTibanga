@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import styles from './page.module.css';
 
 const FaceScanner = dynamic(() => import('@/components/FaceScanner'), { ssr: false });
@@ -25,6 +26,7 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 export default function SystemSettingsPage() {
+    const { confirm, dialogs } = useAppDialogs();
     const [activeTab, setActiveTab] = useState(0);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -329,7 +331,12 @@ export default function SystemSettingsPage() {
     };
 
     const handleAnnDelete = async (id) => {
-        if (!confirm('Delete this announcement?')) return;
+        const ok = await confirm({
+            title: 'Delete announcement?',
+            message: 'Delete this announcement?',
+            confirmLabel: 'Delete',
+        });
+        if (!ok) return;
         const data = await apiPatch({ section: 'announcements', action: 'delete', announcement: { id } });
         if (data.success) {
             setAnnouncements(data.announcements);
@@ -363,7 +370,12 @@ export default function SystemSettingsPage() {
     };
 
     const handleDeletePurok = async (name) => {
-        if (!confirm(`Delete "${name}"?`)) return;
+        const ok = await confirm({
+            title: 'Delete purok?',
+            message: `Delete "${name}"?`,
+            confirmLabel: 'Delete',
+        });
+        if (!ok) return;
         const data = await apiPatch({ section: 'puroks', action: 'delete', purok: name });
         if (data.success) {
             setPuroks(data.puroks);
@@ -428,7 +440,12 @@ export default function SystemSettingsPage() {
     };
 
     const handleAdminDelete = async (id) => {
-        if (!confirm('Delete this admin account?')) return;
+        const ok = await confirm({
+            title: 'Delete admin account?',
+            message: 'Delete this admin account?',
+            confirmLabel: 'Delete',
+        });
+        if (!ok) return;
         const data = await apiPatch({ section: 'admin-management', action: 'delete', adminId: id });
         if (data.success) {
             setAdminUsers(data.adminUsers);
@@ -474,7 +491,12 @@ export default function SystemSettingsPage() {
     };
 
     const handleFaceRemove = async () => {
-        if (!confirm('Remove your face data? You will need to re-enroll to use face login.')) return;
+        const ok = await confirm({
+            title: 'Remove face data?',
+            message: 'Remove your face data? You will need to re-enroll to use face login.',
+            confirmLabel: 'Remove',
+        });
+        if (!ok) return;
         try {
             const res = await fetch('/api/admin/enroll-face', { method: 'DELETE' });
             const data = await res.json();
@@ -546,6 +568,8 @@ export default function SystemSettingsPage() {
     const currentTabKey = visibleTabs[activeTab]?.key;
 
     return (
+        <>
+            {dialogs}
         <div className={styles.settings}>
             {/* Tabs */}
             <div className={styles.tabs}>
@@ -1165,5 +1189,6 @@ export default function SystemSettingsPage() {
             {/* Toast */}
             {toast && <div className={`${styles.toast} ${toast.type === 'error' ? styles.toastError : styles.toastSuccess}`}>{toast.msg}</div>}
         </div>
+        </>
     );
 }

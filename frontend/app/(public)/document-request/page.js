@@ -6,10 +6,12 @@ import TimeDisplay from '@/components/TimeDisplay';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
 import { getRequirementsForDocument } from '@/lib/documentRequirements';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import styles from './page.module.css';
 
 export default function DocumentRequestPage() {
     const router = useRouter();
+    const { showAlert, dialogs } = useAppDialogs();
     const { user } = useAuth();
     const [documents, setDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function DocumentRequestPage() {
     const handleConfirm = () => {
         if (confirming) return;
         if (selectedDocs.length === 0) {
-            alert('Please select at least one document type.');
+            showAlert('No documents selected', 'Please select at least one document type.');
             return;
         }
         setConfirming(true);
@@ -118,6 +120,7 @@ export default function DocumentRequestPage() {
 
     return (
         <>
+            {dialogs}
             {/* Time Display */}
             <TimeDisplay />
 

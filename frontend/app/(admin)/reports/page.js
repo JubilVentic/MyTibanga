@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { usePolling } from '@/hooks/usePolling';
 import styles from './page.module.css';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 
 const TibangaMap = dynamic(() => import('@/components/TibangaMap'), { ssr: false });
 
@@ -27,6 +28,7 @@ const REPORT_OPTIONS = [
 ];
 
 export default function ReportsPage() {
+    const { showAlert, dialogs } = useAppDialogs();
     const chartExportRef = useRef(null);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -174,7 +176,7 @@ export default function ReportsPage() {
     const handleExportCsv = () => {
         const rows = getCsvRows();
         if (!rows.length) {
-            alert('No data available to export.');
+            showAlert('Export unavailable', 'No data available to export.');
             return;
         }
         const csv = rowsToCsv(rows);
@@ -183,7 +185,7 @@ export default function ReportsPage() {
 
     const handleExportPng = async () => {
         if (!chartExportRef.current) {
-            alert('Chart is not ready yet.');
+            showAlert('Export unavailable', 'Chart is not ready yet.');
             return;
         }
         try {
@@ -213,7 +215,7 @@ export default function ReportsPage() {
             a.click();
             a.remove();
         } catch {
-            alert('Could not export PNG. Please try again.');
+            showAlert('Export failed', 'Could not export PNG. Please try again.');
         }
     };
 
@@ -605,6 +607,8 @@ export default function ReportsPage() {
     };
 
     return (
+        <>
+            {dialogs}
         <div className={styles.reports}>
             {loading && !data ? (
                 <div className={styles.loadingState}>Loading report data...</div>
@@ -664,5 +668,6 @@ export default function ReportsPage() {
                 </>
             )}
         </div>
+        </>
     );
 }

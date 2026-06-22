@@ -7,7 +7,8 @@
     "dev:plain": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:sms-variant": "node --use-system-ca scripts/test-sms-variants.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.0",

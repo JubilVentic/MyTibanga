@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, refreshSession } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 // GET — get current user's profile
@@ -46,6 +46,7 @@ export async function GET() {
             email: user.email || '',
             mobileNumber: user.mobile_number || '',
             role: user.role,
+            mustChangePassword: user.must_change_password === true,
         },
         resident,
     });
@@ -75,6 +76,11 @@ export async function PATCH(request) {
 
     // Password change
     if (newPassword) {
+        const trimmed = String(newPassword).trim();
+        if (trimmed.length < 6) {
+            return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 });
+        }
+
         const bcrypt = (await import('bcryptjs')).default;
 
         let valid = false;
@@ -88,8 +94,24 @@ export async function PATCH(request) {
             return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
         }
 
-        const hashed = await bcrypt.hash(newPassword, 10);
-        await query('UPDATE users SET password = $1 WHERE id = $2', [hashed, session.id]);
+        const hashed = await bcrypt.hash(trimmed, 10);
+        await query(
+            'UPDATE users SET password = $1, must_change_password = FALSE WHERE id = $2',
+            [hashed, session.id]
+        );
+
+        const { rows: resRows } = await query(
+            `SELECT id FROM residents
+             WHERE deleted_at IS NULL
+               AND (username = $1 OR (first_name || ' ' || last_name) = $2)`,
+            [user.username, user.name]
+        );
+        if (resRows.length > 0) {
+            await query('UPDATE residents SET password = $1 WHERE id = $2', [hashed, resRows[0].id]);
+        }
+
+        await refreshSession(session.id);
+        return NextResponse.json({ success: true, mustChangePassword: false });
     }
 
     // Also update resident record if exists

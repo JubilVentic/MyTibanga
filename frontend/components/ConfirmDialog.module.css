@@ -57,6 +57,33 @@
     line-height: 1.5;
     margin: 0 0 1.25rem;
     text-align: center;
+    white-space: pre-line;
+}
+
+.input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 0.6rem 0.75rem;
+    margin: 0 0 1.25rem;
+    border: 1px solid var(--gray-200, #ddd);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.input:focus {
+    outline: 2px solid var(--blue-primary, #0147ae);
+    outline-offset: 1px;
+    border-color: var(--blue-primary, #0147ae);
+}
+
+.inputHint {
+    font-size: 0.8rem;
+    color: #666;
+    margin: -0.75rem 0 1rem;
+    text-align: center;
 }
 
 .actions {
@@ -131,6 +158,15 @@
 .btnConfirmDanger:active,
 .btnConfirmNeutral:active {
     transform: scale(0.98);
+}
+
+.btnConfirm:disabled,
+.btnConfirmDanger:disabled,
+.btnConfirmNeutral:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .btnConfirm:focus-visible,

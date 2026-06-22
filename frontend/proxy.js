@@ -48,6 +48,17 @@ export async function proxy(request) {
             return NextResponse.redirect(new URL('/', request.url));
         }
 
+        // Residents with a temporary password must change it before using the portal
+        if (
+            payload.role === 'resident' &&
+            payload.mustChangePassword === true &&
+            pathname !== '/profile' &&
+            !pathname.startsWith('/profile/')
+        ) {
+            const dest = new URL('/profile?mustChangePassword=1', request.url);
+            return NextResponse.redirect(dest);
+        }
+
         return NextResponse.next();
     } catch {
         return NextResponse.redirect(new URL('/login', request.url));

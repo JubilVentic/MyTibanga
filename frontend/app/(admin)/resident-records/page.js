@@ -7,10 +7,13 @@ import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
 import { formatChildrenWithAges, formatNameWithDeceased } from '@/lib/residentChildren';
 import { readResidentImportFile, RESIDENT_IMPORT_ACCEPT } from '@/lib/residentImportFile';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
+import ResidentCredentialDialog from '@/components/ResidentCredentialDialog';
 import styles from './page.module.css';
 
 export default function ResidentRecordsPage() {
     const router = useRouter();
+    const { confirm, prompt, dialogs } = useAppDialogs();
     const [residents, setResidents] = useState([]);
     const [search, setSearch] = useState('');
     const [purokFilter, setPurokFilter] = useState('all');
@@ -35,6 +38,8 @@ export default function ResidentRecordsPage() {
     const [restoringResidentId, setRestoringResidentId] = useState(null);
     const [purgingResidentId, setPurgingResidentId] = useState(null);
     const [archivedLoadTimedOut, setArchivedLoadTimedOut] = useState(false);
+    const [credentialDialog, setCredentialDialog] = useState(null);
+    const [resettingPortalId, setResettingPortalId] = useState(null);
 
     const showToast = useCallback((msg, type = 'success') => {
         setToast({ msg, type });
@@ -171,11 +176,18 @@ export default function ResidentRecordsPage() {
 
     const handlePurgeResident = async (resident) => {
         if (!resident?.id) return;
-        const ok = window.confirm(
-            `Permanently delete ${resident.firstName} ${resident.lastName}? This cannot be undone.`
-        );
+        const ok = await confirm({
+            title: 'Permanently delete resident?',
+            message: `Permanently delete ${resident.firstName} ${resident.lastName}? This cannot be undone.`,
+            confirmLabel: 'Continue',
+        });
         if (!ok) return;
-        const typed = window.prompt('Type DELETE to confirm permanent deletion:');
+        const typed = await prompt({
+            title: 'Confirm permanent deletion',
+            message: 'Type DELETE to confirm permanent deletion:',
+            matchText: 'DELETE',
+            confirmLabel: 'Delete permanently',
+        });
         if (typed !== 'DELETE') {
             showToast('Permanent delete cancelled (confirmation text mismatch).', 'error');
             return;
@@ -272,7 +284,46 @@ Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,
         setDeleteResident(resident);
     };
 
+    const resetPortalPassword = async (resident) => {
+        if (!resident?.id || resettingPortalId) return;
+        setResettingPortalId(resident.id);
+        try {
+            const res = await fetch(`/api/admin/residents/${resident.id}/reset-portal-password`, {
+                method: 'POST',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                showToast(data.error || 'Failed to reset portal password.', 'error');
+                return;
+            }
+            setCredentialDialog({
+                title: 'New portal password issued',
+                residentName: data.residentName || `${resident.firstName} ${resident.lastName}`.trim(),
+                username: data.username,
+                tempPassword: data.tempPassword,
+                smsSent: data.smsSent,
+                smsReason: data.smsReason || '',
+            });
+        } catch {
+            showToast('Failed to reset portal password.', 'error');
+        } finally {
+            setResettingPortalId(null);
+        }
+    };
+
     return (
+        <>
+            {dialogs}
+            <ResidentCredentialDialog
+                open={!!credentialDialog}
+                title={credentialDialog?.title || 'Portal login credentials'}
+                residentName={credentialDialog?.residentName}
+                username={credentialDialog?.username}
+                tempPassword={credentialDialog?.tempPassword}
+                smsSent={credentialDialog?.smsSent}
+                smsReason={credentialDialog?.smsReason}
+                onDone={() => setCredentialDialog(null)}
+            />
         <div className={styles.page}>
             {/* Header */}
             <div className={styles.pageHeader}>
@@ -551,7 +602,7 @@ Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,
                                 {/* Account Credentials */}
                                 {viewResident.username && (
                                     <div className={styles.modalSection}>
-                                        <h3 className={styles.modalSubtitle}>Account Credentials</h3>
+                                        <h3 className={styles.modalSubtitle}>Portal account</h3>
                                         <div className={styles.modalGrid}>
                                             <div className={styles.modalField}>
                                                 <span className={styles.modalLabel}>Username</span>
@@ -559,8 +610,22 @@ Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,
                                             </div>
                                             <div className={styles.modalField}>
                                                 <span className={styles.modalLabel}>Password</span>
-                                                <span className={styles.modalValue}>Hidden for security</span>
+                                                <span className={styles.modalValue}>
+                                                    Sent by SMS when the account was created. Reset below to send a new one.
+                                                </span>
                                             </div>
+                                        </div>
+                                        <div className={styles.portalResetRow}>
+                                            <button
+                                                type="button"
+                                                className={styles.portalResetBtn}
+                                                disabled={resettingPortalId === viewResident.id}
+                                                onClick={() => resetPortalPassword(viewResident)}
+                                            >
+                                                {resettingPortalId === viewResident.id
+                                                    ? 'Issuing…'
+                                                    : 'Reset portal password'}
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -737,6 +802,12 @@ Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,
                             {importPreview && (
                                 <div className={styles.importResult}>
                                     <p>Imported: {importPreview.importedCount ?? 0}</p>
+                                    {(importPreview.importedCount ?? 0) > 0 && (
+                                        <p className={styles.importCredentialNote}>
+                                            Portal accounts created. Passwords were sent by SMS where mobile numbers
+                                            are valid. Use Reset portal password on a record if a resident did not receive theirs.
+                                        </p>
+                                    )}
                                     {(importPreview.errors || []).length > 0 && (
                                         <ul className={styles.importErrorList}>
                                             {importPreview.errors.map((err) => (
@@ -759,5 +830,6 @@ Juan,Dela Cruz,Maria,,Male,Single,1990-01-15,Iligan City,Roman Catholic,Purok 1,
                 </Portal>
             )}
         </div>
+        </>
     );
 }

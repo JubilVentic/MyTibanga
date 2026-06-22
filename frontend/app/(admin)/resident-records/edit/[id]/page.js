@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import styles from '../../add/page.module.css';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ResidentCredentialDialog from '@/components/ResidentCredentialDialog';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { alignChildrenFormArrays } from '@/lib/residentChildren';
 import { validateSoloParentSector } from '@/lib/residentValidation';
 
@@ -31,6 +33,9 @@ export default function EditResidentPage() {
     const router = useRouter();
     const params = useParams();
     const residentId = params.id;
+    const { showAlert, dialogs } = useAppDialogs();
+    const showAlertRef = useRef(showAlert);
+    showAlertRef.current = showAlert;
 
     const [form, setForm] = useState(null);
     const [puroks, setPuroks] = useState([]);
@@ -41,6 +46,8 @@ export default function EditResidentPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [soloParentDialogOpen, setSoloParentDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [credentialDialog, setCredentialDialog] = useState(null);
+    const [resettingPortal, setResettingPortal] = useState(false);
 
     useEffect(() => {
         fetch('/api/admin/settings')
@@ -111,7 +118,7 @@ export default function EditResidentPage() {
                 setLoading(false);
             })
             .catch(() => {
-                alert('Failed to load resident data.');
+                showAlertRef.current('Could not load resident', 'Failed to load resident data.');
                 setLoading(false);
             });
     }, [residentId]);
@@ -175,6 +182,33 @@ export default function EditResidentPage() {
         }));
     };
 
+    const resetPortalPassword = async () => {
+        if (!residentId || resettingPortal) return;
+        setResettingPortal(true);
+        try {
+            const res = await fetch(`/api/admin/residents/${residentId}/reset-portal-password`, {
+                method: 'POST',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                showAlert('Cannot reset password', data.error || 'Failed to reset portal password.');
+                return;
+            }
+            setCredentialDialog({
+                title: 'New portal password issued',
+                residentName: data.residentName || `${form.firstName} ${form.lastName}`.trim(),
+                username: data.username,
+                tempPassword: data.tempPassword,
+                smsSent: data.smsSent,
+                smsReason: data.smsReason || '',
+            });
+        } catch {
+            showAlert('Cannot reset password', 'Failed to reset portal password.');
+        } finally {
+            setResettingPortal(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         const soloErr = validateSoloParentSector(form.sector, form.children);
@@ -186,9 +220,7 @@ export default function EditResidentPage() {
 
         try {
             const payload = { ...form };
-            if (!String(payload.password || '').trim()) {
-                delete payload.password;
-            }
+            delete payload.password;
             const res = await fetch(`/api/admin/residents/${residentId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -198,13 +230,14 @@ export default function EditResidentPage() {
             const data = await res.json();
 
             if (data.success) {
-                alert('Resident updated successfully!');
-                router.push('/resident-records');
+                showAlert('Resident updated', 'Changes were saved successfully.', {
+                    onClose: () => router.push('/resident-records'),
+                });
             } else {
-                alert('Error: ' + (data.error || 'Failed to update'));
+                showAlert('Cannot save resident', data.error || 'Failed to update');
             }
         } catch (err) {
-            alert('Error updating resident: ' + err.message);
+            showAlert('Cannot save resident', err.message || 'Error updating resident');
         } finally {
             setIsSubmitting(false);
         }
@@ -234,6 +267,7 @@ export default function EditResidentPage() {
 
     return (
         <>
+            {dialogs}
             <ConfirmDialog
                 open={soloParentDialogOpen}
                 title="Cannot save resident"
@@ -243,6 +277,16 @@ export default function EditResidentPage() {
                 confirmVariant="primary"
                 onConfirm={() => setSoloParentDialogOpen(false)}
                 onCancel={() => setSoloParentDialogOpen(false)}
+            />
+            <ResidentCredentialDialog
+                open={!!credentialDialog}
+                title={credentialDialog?.title || 'Portal login credentials'}
+                residentName={credentialDialog?.residentName}
+                username={credentialDialog?.username}
+                tempPassword={credentialDialog?.tempPassword}
+                smsSent={credentialDialog?.smsSent}
+                smsReason={credentialDialog?.smsReason}
+                onDone={() => setCredentialDialog(null)}
             />
         <div className={styles.page}>
             {/* Header */}
@@ -506,9 +550,9 @@ export default function EditResidentPage() {
                     </button>
                 </fieldset>
 
-                {/* Account Credentials */}
+                {/* Portal account */}
                 <fieldset className={styles.formSection}>
-                    <legend className={styles.sectionTitle}>Account Credentials</legend>
+                    <legend className={styles.sectionTitle}>Portal account</legend>
                     <div className={styles.formRowTwo}>
                         <div className={styles.credentialField}>
                             <label className={styles.credentialLabel}>Username</label>
@@ -517,11 +561,18 @@ export default function EditResidentPage() {
                                 onChange={(e) => handleChange('username', e.target.value)} />
                         </div>
                         <div className={styles.credentialField}>
-                            <label className={styles.credentialLabel}>New Password (optional)</label>
-                            <input type="text" className={`${styles.input} ${styles.credentialInput}`}
-                                value={form.password}
-                                onChange={(e) => handleChange('password', e.target.value)}
-                                placeholder="Leave blank to keep current password" />
+                            <label className={styles.credentialLabel}>Password</label>
+                            <p className={styles.credentialsNote}>
+                                Passwords are sent by SMS. Use Reset portal password to send a new one.
+                            </p>
+                            <button
+                                type="button"
+                                className={styles.portalResetBtn}
+                                disabled={resettingPortal || !form.username?.trim()}
+                                onClick={resetPortalPassword}
+                            >
+                                {resettingPortal ? 'Issuing…' : 'Reset portal password'}
+                            </button>
                         </div>
                     </div>
                 </fieldset>

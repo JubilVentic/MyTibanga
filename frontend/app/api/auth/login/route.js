@@ -44,7 +44,13 @@ export async function POST(request) {
 
         return NextResponse.json({
             success: true,
-            user: { id: user.id, name: user.name, username: user.username, role: user.role },
+            user: {
+                id: user.id,
+                name: user.name,
+                username: user.username,
+                role: user.role,
+                mustChangePassword: user.mustChangePassword === true,
+            },
         });
     } catch (error) {
         console.error('Login error:', error);

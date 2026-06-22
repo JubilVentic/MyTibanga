@@ -52,6 +52,8 @@ export async function findUserByUsername(username) {
         role: u.role,
         superAdmin: u.super_admin,
         permissions: u.permissions || [],
+        mustChangePassword: u.must_change_password === true,
+        mobileNumber: u.mobile_number || '',
     };
 }
 
@@ -62,6 +64,7 @@ export async function createSession(user) {
         email: user.email,
         name: user.name,
         role: user.role,
+        mustChangePassword: user.mustChangePassword === true,
     })
         .setProtectedHeader({ alg: 'HS256' })
         .setExpirationTime('24h')
@@ -77,6 +80,20 @@ export async function createSession(user) {
     });
 
     return token;
+}
+
+/** Re-issue session cookie after profile/password updates. */
+export async function refreshSession(userId) {
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    const u = rows[0];
+    if (!u) return null;
+    return createSession({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        mustChangePassword: u.must_change_password === true,
+    });
 }
 
 // Get the current session user from the cookie

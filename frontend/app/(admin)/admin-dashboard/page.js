@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Portal from '@/app/components/Portal';
 import { usePolling } from '@/hooks/usePolling';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { buildRequirementChecklist } from '@/lib/documentRequirements';
 import styles from './page.module.css';
 
@@ -48,6 +49,7 @@ function formatPaymentMethod(method) {
 
 export default function AdminDashboardPage() {
     useAuth();
+    const { showAlert, dialogs } = useAppDialogs();
     const normalizePurpose = (value = '') => String(value).trim().replace(/\s+/g, ' ');
 
     const [requests, setRequests] = useState([]);
@@ -242,7 +244,7 @@ export default function AdminDashboardPage() {
             const data = await res.json();
             if (data.success) fetchData();
         } catch {
-            alert('Failed to send notification');
+            showAlert('Notification failed', 'Failed to send notification');
         }
     };
 
@@ -261,10 +263,10 @@ export default function AdminDashboardPage() {
                 setOrOverrideOpen(false);
                 fetchData();
             } else {
-                alert(data.error || 'Failed to save OR number');
+                showAlert('Save failed', data.error || 'Failed to save OR number');
             }
         } catch {
-            alert('Failed to save OR number');
+            showAlert('Save failed', 'Failed to save OR number');
         }
     };
 
@@ -290,10 +292,10 @@ export default function AdminDashboardPage() {
                     prev.map((r) => (r.id === selectedRequest.id ? { ...r, purpose: next } : r))
                 );
             } else {
-                alert(data.error || 'Failed to save purpose');
+                showAlert('Save failed', data.error || 'Failed to save purpose');
             }
         } catch {
-            alert('Failed to save purpose');
+            showAlert('Save failed', 'Failed to save purpose');
         } finally {
             setSavingPurpose(false);
         }
@@ -329,10 +331,10 @@ export default function AdminDashboardPage() {
                     });
                 }
             } else {
-                alert(data.error || 'Failed to update status');
+                showAlert('Update failed', data.error || 'Failed to update status');
             }
         } catch {
-            alert('Failed to update status');
+            showAlert('Update failed', 'Failed to update status');
         } finally {
             setUpdatingId(null);
         }
@@ -364,6 +366,8 @@ export default function AdminDashboardPage() {
     const maxTrend = Math.max(...monthlyTrend.map((m) => m.total), 1);
 
     return (
+        <>
+            {dialogs}
         <div className={styles.dashboard}>
             {/* ── Stat Cards ── */}
             <div className={styles.statCards}>
@@ -803,7 +807,7 @@ export default function AdminDashboardPage() {
                                                         opened++;
                                                     }
                                                 });
-                                                if (opened === 0) alert('No matching document files found. Please upload the document templates in Document Management first.');
+                                                if (opened === 0) showAlert('No documents found', 'No matching document files found. Please upload the document templates in Document Management first.');
                                             }}>🖨 Print</button>
                                             <button
                                                 className={styles.releaseBtn}
@@ -943,5 +947,6 @@ export default function AdminDashboardPage() {
                 </Portal>
             )}
         </div>
+        </>
     );
 }

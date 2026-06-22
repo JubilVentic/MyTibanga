@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
     super_admin   BOOLEAN DEFAULT FALSE,
     mobile_number TEXT DEFAULT '',             -- Philippine mobile number (e.g. 09171234567)
     permissions   TEXT[] DEFAULT '{}',      -- array of strings like {'fees','puroks'}
-    face_descriptor JSONB DEFAULT NULL       -- 128-float array for face recognition (admins only)
+    face_descriptor JSONB DEFAULT NULL,      -- 128-float array for face recognition (admins only)
+    must_change_password BOOLEAN DEFAULT FALSE  -- residents: force password change on first login
 );
 
 -- ── Residents (full profile records) ─────────────────────

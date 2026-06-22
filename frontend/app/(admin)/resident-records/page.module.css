@@ -217,6 +217,12 @@
     font-size: 0.85rem;
 }
 
+.importCredentialNote {
+    margin: 8px 0 0;
+    color: #444;
+    line-height: 1.45;
+}
+
 .importErrorList {
     margin: 8px 0 0;
     padding-left: 20px;
@@ -227,6 +233,31 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+}
+
+.portalResetRow {
+    margin-top: 12px;
+}
+
+.portalResetBtn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    background: #0147ae;
+    color: #fff;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.portalResetBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.portalResetBtn:hover:not(:disabled) {
+    background: #ff9800;
 }
 
 /* ==================== FILTER BAR ==================== */

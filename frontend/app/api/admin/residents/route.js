@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs';
 import { requireAdmin } from '@/lib/auth';
 import { normalizeChildrenArrays } from '@/lib/residentChildren';
 import { validateSoloParentSector } from '@/lib/residentValidation';
+import { generateRandomPassword } from '@/lib/generatePassword';
+import { sendResidentWelcomeSms } from '@/lib/residentWelcomeSms';
+import { generateResidentUsername } from '@/lib/residentUsername';
 
 // GET — return active residents by default; pass ?archived=1 for soft-deleted residents
 export async function GET(request) {
@@ -71,7 +74,8 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const hashedPassword = await bcrypt.hash(body.password || '1234', 10);
+        const plainPassword = generateRandomPassword();
+        const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         const { children: childNames, childrenAges: childAges } = normalizeChildrenArrays(
             Array.isArray(body.children) ? body.children : [],
@@ -84,6 +88,12 @@ export async function POST(request) {
         if (soloErr) {
             return NextResponse.json({ success: false, message: soloErr }, { status: 400 });
         }
+
+        let username = generateResidentUsername({
+            firstName: body.firstName,
+            lastName: body.lastName,
+            explicitUsername: body.username,
+        });
 
         const { rows } = await query(
             `INSERT INTO residents (
@@ -109,7 +119,7 @@ export async function POST(request) {
                 body.childsName || '', body.childsMother || '',
                 childNames,
                 childAges,
-                body.username || '', hashedPassword, body.idPicture || '',
+                username, hashedPassword, body.idPicture || '',
             ]
         );
 
@@ -130,24 +140,53 @@ export async function POST(request) {
             username: r.username, password: '', idPicture: r.id_picture,
         };
 
-        // Also create a login account in users table
+        let account = {
+            username,
+            smsSent: false,
+            smsReason: newResident.username ? 'pending' : 'no_username',
+            accountCreated: false,
+        };
+
         if (newResident.username) {
-            const { rows: existing } = await query('SELECT id FROM users WHERE username = $1', [newResident.username]);
+            const { rows: existing } = await query(
+                'SELECT id FROM users WHERE LOWER(username) = LOWER($1)',
+                [newResident.username]
+            );
             if (existing.length === 0) {
                 await query(
-                    'INSERT INTO users (name, username, email, password, role) VALUES ($1,$2,$3,$4,$5)',
+                    `INSERT INTO users (name, username, email, password, role, mobile_number, must_change_password)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
                     [
                         `${newResident.firstName} ${newResident.lastName}`,
                         newResident.username,
                         newResident.email || '',
                         hashedPassword,
                         'resident',
+                        newResident.mobileNumber || '',
+                        true,
                     ]
                 );
+                account.accountCreated = true;
+                const sms = await sendResidentWelcomeSms(newResident.mobileNumber, plainPassword);
+                account = {
+                    username: newResident.username,
+                    smsSent: sms.sent,
+                    smsReason: sms.sent ? '' : (sms.reason || 'send_failed'),
+                    accountCreated: true,
+                    tempPassword: plainPassword,
+                };
+                console.log(`[SMS] resident create ${newResident.username}:`, JSON.stringify(sms));
+            } else {
+                account = {
+                    username: newResident.username,
+                    smsSent: false,
+                    smsReason: 'username_exists',
+                    accountCreated: false,
+                };
             }
         }
 
-        return NextResponse.json({ success: true, resident: newResident }, { status: 201 });
+        return NextResponse.json({ success: true, resident: newResident, account }, { status: 201 });
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }

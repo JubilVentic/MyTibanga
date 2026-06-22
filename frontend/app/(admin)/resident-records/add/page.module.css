@@ -268,7 +268,30 @@
 .credentialsNote {
     font-size: 0.82rem;
     color: #666;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+
+.portalResetBtn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    background: #0147ae;
+    color: #fff;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+    align-self: flex-start;
+}
+
+.portalResetBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.portalResetBtn:hover:not(:disabled) {
+    background: #ff9800;
 }
 
 .credentialField {

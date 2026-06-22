@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import TimeDisplay from '@/components/TimeDisplay';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useAppDialogs } from '@/hooks/useAppDialogs';
 import { useAuth } from '@/hooks/useAuth';
 import { usePolling } from '@/hooks/usePolling';
 import styles from './page.module.css';
@@ -44,6 +45,7 @@ function formatPaymentMethod(method) {
 }
 
 function TrackRequestContent() {
+    const { showAlert, dialogs } = useAppDialogs();
     const searchParams = useSearchParams();
     const { user } = useAuth();
     const [requestNo, setRequestNo] = useState('');
@@ -184,7 +186,7 @@ function TrackRequestContent() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(data.error || 'Remove failed.');
+                showAlert('Remove failed', data.error || 'Remove failed.');
                 return;
             }
             setMyRequests((prev) => prev.filter((r) => r.requestNo !== rn));
@@ -192,7 +194,7 @@ function TrackRequestContent() {
                 setResult(null);
             }
         } catch {
-            alert('Remove failed. Please try again.');
+            showAlert('Remove failed', 'Remove failed. Please try again.');
         } finally {
             setDeletingRequestNo('');
         }
@@ -200,6 +202,7 @@ function TrackRequestContent() {
 
     return (
         <>
+            {dialogs}
             <ConfirmDialog
                 open={!!removeTarget}
                 title="Remove request?"
