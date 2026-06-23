@@ -149,8 +149,14 @@
 
 .table tfoot td {
     border-bottom: none;
-    background: #f7f9fc;
+    background: #eef3fb;
     font-weight: 700;
+}
+
+.daySubtotalRow td {
+    background: #f7f9fc;
+    font-weight: 600;
+    border-bottom: 2px solid #e3e8ef;
 }
 
 .num {

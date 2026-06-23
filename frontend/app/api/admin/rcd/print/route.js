@@ -6,6 +6,7 @@ import {
     buildAutoRcdRows,
     formatMoney,
     formatRcdDisplayDate,
+    groupCollectionsByDate,
     mergeRcdRows,
     resolveRcdPeriodParams,
     sumRcdRows,
@@ -74,18 +75,30 @@ async function fetchRequestsForRcd() {
 }
 
 function buildTableRows(collections) {
-    return collections.map((row) => {
-        const stamp = Number(row.docStamp || 0);
-        const displayDate = formatRcdDisplayDate(row.date);
-        return `<tr>
+    const groups = groupCollectionsByDate(collections);
+    const parts = [];
+
+    for (const group of groups) {
+        for (const row of group.rows) {
+            const stamp = Number(row.docStamp || 0);
+            const displayDate = formatRcdDisplayDate(row.date);
+            parts.push(`<tr>
             <td>${escapeHtml(displayDate)}</td>
             <td>${escapeHtml(row.orNumber)}</td>
             <td>${escapeHtml(row.payor)}</td>
             <td>${escapeHtml(row.collectionName)}</td>
             <td class="num">${escapeHtml(formatMoney(row.amount))}</td>
             <td class="num">${stamp > 0 ? escapeHtml(formatMoney(stamp)) : '&nbsp;'}</td>
-        </tr>`;
-    }).join('');
+        </tr>`);
+        }
+        parts.push(`<tr class="subtotal">
+            <td colspan="4" style="text-align:right;">SUB TOTAL</td>
+            <td class="num">${escapeHtml(formatMoney(group.subtotal.amount))}</td>
+            <td class="num">${group.subtotal.docStamp > 0 ? escapeHtml(formatMoney(group.subtotal.docStamp)) : '&nbsp;'}</td>
+        </tr>`);
+    }
+
+    return parts.join('');
 }
 
 function buildRcdHtml({ periodLabel, collections, totals, treasurerName = '' }) {
@@ -153,11 +166,11 @@ function buildRcdHtml({ periodLabel, collections, totals, treasurerName = '' }) 
       </thead>
       <tbody>
         ${buildTableRows(collections)}
-        <tr class="subtotal">
-          <td colspan="4" style="text-align:right;">SUB TOTAL</td>
+        ${groupCollectionsByDate(collections).length > 1 ? `<tr class="subtotal grand">
+          <td colspan="4" style="text-align:right;">GRAND TOTAL</td>
           <td class="num">${escapeHtml(formatMoney(totals.amount))}</td>
           <td class="num">${totals.docStamp > 0 ? escapeHtml(formatMoney(totals.docStamp)) : '&nbsp;'}</td>
-        </tr>
+        </tr>` : ''}
       </tbody>
     </table>
 

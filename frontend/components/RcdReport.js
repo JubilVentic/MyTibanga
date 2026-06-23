@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { useAppDialogs } from '@/hooks/useAppDialogs';
 import {
     buildRcdApiQueryString,
@@ -8,6 +8,7 @@ import {
     defaultDocStampForManual,
     formatMoney,
     formatRcdDisplayDate,
+    groupCollectionsByDate,
     RCD_DOC_STAMP,
 } from '@/lib/rcdCollections';
 import styles from './RcdReport.module.css';
@@ -183,7 +184,9 @@ export default function RcdReport() {
 
     const collections = data?.collections || [];
     const totals = data?.totals || { amount: 0, docStamp: 0 };
+    const dateGroups = groupCollectionsByDate(collections);
     const showDateColumn = timeFilter !== 'day';
+    const labelColSpan = showDateColumn ? 5 : 4;
 
     return (
         <>
@@ -272,8 +275,9 @@ export default function RcdReport() {
                 )}
 
                 <p className={styles.hint}>
-                    Portal requests with fees (Clearance, Solo Parents, Residency) appear automatically when they have an OR number.
-                    Add walk-in documents with no fee, or other barangay services, using the form below.
+                    Portal requests (Clearance, Solo Parents, Residency) appear automatically when they have an OR number.
+                    The configured fee includes a ₱30 doc stamp per copy — Amount shows the certificate fee only; Doc Stamp shows ₱30.
+                    Free documents (Indigency, Motorized Banca) are not included. Add other services manually below.
                 </p>
 
                 {loading ? (
@@ -302,46 +306,58 @@ export default function RcdReport() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        collections.map((row) => (
-                                            <tr key={row.id}>
-                                                {showDateColumn && (
-                                                    <td>{formatRcdDisplayDate(row.date)}</td>
-                                                )}
-                                                <td>
-                                                    <span className={row.source === 'portal' ? styles.badgePortal : styles.badgeManual}>
-                                                        {row.source === 'portal' ? 'Portal' : 'Manual'}
-                                                    </span>
-                                                </td>
-                                                <td>{row.orNumber || '—'}</td>
-                                                <td>{row.payor || '—'}</td>
-                                                <td>{row.collectionName || '—'}</td>
-                                                <td className={styles.num}>₱{formatMoney(row.amount)}</td>
-                                                <td className={styles.num}>
-                                                    {Number(row.docStamp) > 0 ? `₱${formatMoney(row.docStamp)}` : '—'}
-                                                </td>
-                                                <td>
-                                                    {row.source === 'manual' && row.manualId ? (
-                                                        <button
-                                                            type="button"
-                                                            className={styles.deleteBtn}
-                                                            onClick={() => handleDeleteManual(row.manualId)}
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    ) : null}
-                                                </td>
-                                            </tr>
+                                        dateGroups.map((group) => (
+                                            <Fragment key={group.date}>
+                                                {group.rows.map((row) => (
+                                                    <tr key={row.id}>
+                                                        {showDateColumn && (
+                                                            <td>{formatRcdDisplayDate(row.date)}</td>
+                                                        )}
+                                                        <td>
+                                                            <span className={row.source === 'portal' ? styles.badgePortal : styles.badgeManual}>
+                                                                {row.source === 'portal' ? 'Portal' : 'Manual'}
+                                                            </span>
+                                                        </td>
+                                                        <td>{row.orNumber || '—'}</td>
+                                                        <td>{row.payor || '—'}</td>
+                                                        <td>{row.collectionName || '—'}</td>
+                                                        <td className={styles.num}>₱{formatMoney(row.amount)}</td>
+                                                        <td className={styles.num}>
+                                                            {Number(row.docStamp) > 0 ? `₱${formatMoney(row.docStamp)}` : '—'}
+                                                        </td>
+                                                        <td>
+                                                            {row.source === 'manual' && row.manualId ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.deleteBtn}
+                                                                    onClick={() => handleDeleteManual(row.manualId)}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            ) : null}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                <tr className={styles.daySubtotalRow}>
+                                                    <td colSpan={labelColSpan} className={styles.totalLabel}>Sub Total</td>
+                                                    <td className={styles.num}>₱{formatMoney(group.subtotal.amount)}</td>
+                                                    <td className={styles.num}>₱{formatMoney(group.subtotal.docStamp)}</td>
+                                                    <td></td>
+                                                </tr>
+                                            </Fragment>
                                         ))
                                     )}
                                 </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colSpan={showDateColumn ? 5 : 4} className={styles.totalLabel}>Sub Total</td>
-                                        <td className={styles.num}>₱{formatMoney(totals.amount)}</td>
-                                        <td className={styles.num}>₱{formatMoney(totals.docStamp)}</td>
-                                        <td></td>
-                                    </tr>
-                                </tfoot>
+                                {dateGroups.length > 1 && (
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan={labelColSpan} className={styles.totalLabel}>Grand Total</td>
+                                            <td className={styles.num}>₱{formatMoney(totals.amount)}</td>
+                                            <td className={styles.num}>₱{formatMoney(totals.docStamp)}</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
 

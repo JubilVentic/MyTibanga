@@ -169,6 +169,20 @@ export function formatMoney(value) {
     return num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * Portal document fees include a fixed doc stamp per copy (₱30).
+ * RCD Amount column = certificate fee only; Doc Stamp column = ₱30 × quantity.
+ */
+export function splitPaidDocumentLineForRcd(lineTotal, unitPrice, quantity = 1) {
+    const qty = Math.max(1, Number(quantity) || 1);
+    const total = Number(lineTotal) > 0
+        ? Number(lineTotal)
+        : Number(unitPrice || 0) * qty;
+    const docStamp = RCD_DOC_STAMP * qty;
+    const amount = Math.max(0, total - docStamp);
+    return { amount, docStamp, lineTotal: total };
+}
+
 function sortRcdRows(rows) {
     return [...(rows || [])].sort((a, b) => {
         const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
@@ -204,8 +218,12 @@ export function buildAutoRcdRows(requests, startYmd, endYmd = startYmd) {
             const lineTotal = Number(doc.total ?? 0);
             const unitPrice = Number(doc.unitPrice ?? 0);
             const qty = Number(doc.quantity ?? 1);
-            const amount = lineTotal > 0 ? lineTotal : unitPrice * qty;
-            if (amount <= 0) continue;
+            const { amount, docStamp, lineTotal: paidTotal } = splitPaidDocumentLineForRcd(
+                lineTotal,
+                unitPrice,
+                qty
+            );
+            if (paidTotal <= 0) continue;
 
             rows.push({
                 id: `auto-${req.id}-${normalized}`,
@@ -216,7 +234,7 @@ export function buildAutoRcdRows(requests, startYmd, endYmd = startYmd) {
                 payor: req.residentName || '',
                 collectionName: toRcdCollectionName(normalized),
                 amount,
-                docStamp: RCD_DOC_STAMP,
+                docStamp,
             });
         }
     }
@@ -251,29 +269,83 @@ export function mergeRcdRows(autoRows, manualRows) {
     return sortRcdRows([...(autoRows || []), ...manual]);
 }
 
+export function groupCollectionsByDate(collections) {
+    const groups = [];
+    let bucket = null;
+
+    for (const row of sortRcdRows(collections)) {
+        const date = row.date || '';
+        if (!bucket || bucket.date !== date) {
+            if (bucket) {
+                bucket.subtotal = sumRcdRows(bucket.rows);
+                groups.push(bucket);
+            }
+            bucket = { date, rows: [] };
+        }
+        bucket.rows.push(row);
+    }
+
+    if (bucket) {
+        bucket.subtotal = sumRcdRows(bucket.rows);
+        groups.push(bucket);
+    }
+
+    return groups;
+}
+
 export function collectionsToCsv({ treasurerName = '', periodLabel = '', collections = [], totals = {} }) {
     const escapeCell = (cell) => {
         const value = cell == null ? '' : String(cell);
         if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
         return value;
     };
+
+    const groups = groupCollectionsByDate(collections);
+    const dataRows = [];
+
+    for (const group of groups) {
+        for (const row of group.rows) {
+            dataRows.push([
+                formatRcdDisplayDate(row.date),
+                row.source === 'portal' ? 'Portal' : 'Manual',
+                row.orNumber || '',
+                row.payor || '',
+                row.collectionName || '',
+                formatMoney(row.amount),
+                Number(row.docStamp) > 0 ? formatMoney(row.docStamp) : '',
+            ]);
+        }
+        dataRows.push([
+            'SUB TOTAL',
+            '',
+            '',
+            '',
+            '',
+            formatMoney(group.subtotal.amount),
+            group.subtotal.docStamp > 0 ? formatMoney(group.subtotal.docStamp) : '',
+        ]);
+    }
+
+    if (groups.length > 1) {
+        dataRows.push([]);
+        dataRows.push([
+            'GRAND TOTAL',
+            '',
+            '',
+            '',
+            '',
+            formatMoney(totals.amount),
+            totals.docStamp > 0 ? formatMoney(totals.docStamp) : '',
+        ]);
+    }
+
     const lines = [
         ['Barangay Tibanga - Report of Collection and Deposits'],
         ['Period', periodLabel],
         ['Barangay Treasurer', treasurerName || ''],
         [],
         ['Date', 'Source', 'OR No.', 'Payor', 'Collection', 'Amount', 'Doc Stamp'],
-        ...collections.map((row) => [
-            formatRcdDisplayDate(row.date),
-            row.source === 'portal' ? 'Portal' : 'Manual',
-            row.orNumber || '',
-            row.payor || '',
-            row.collectionName || '',
-            formatMoney(row.amount),
-            Number(row.docStamp) > 0 ? formatMoney(row.docStamp) : '',
-        ]),
-        [],
-        ['SUB TOTAL', '', '', '', '', formatMoney(totals.amount), formatMoney(totals.docStamp)],
+        ...dataRows,
     ];
     return lines.map((row) => row.map(escapeCell).join(',')).join('\n');
 }
